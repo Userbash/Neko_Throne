@@ -33,19 +33,44 @@ rm -rf $DEST
 mkdir -p $DEST
 
 if [[ "$GOOS" == "windows" ]]; then
+  UPDATER_FOUND=false
   if [[ "$GOARCH" == "386" ]]; then
-    curl -fLso $DEST/updater.exe "https://github.com/throneproj/updater/releases/latest/download/updater-windows32.exe"
+    assets=("updater-windows32.exe" "updater-win32.exe")
   else
-    curl -fLso $DEST/updater.exe "https://github.com/throneproj/updater/releases/latest/download/updater-windows64.exe"
+    assets=("updater-windows64.exe" "updater-windows-amd64.exe" "updater-win64.exe")
+  fi
+  for asset in "${assets[@]}"; do
+    echo ">> Trying to download ${asset}..."
+    if curl -fLso $DEST/updater.exe "https://github.com/throneproj/updater/releases/latest/download/${asset}"; then
+      echo ">> Successfully downloaded ${asset}"
+      UPDATER_FOUND=true
+      break
+    fi
+  done
+  if [ "$UPDATER_FOUND" = false ]; then
+    echo "WARNING: Could not download Windows updater. Build will continue without it."
   fi
 fi
+
 if [[ "$GOOS" == "linux" ]]; then
+  UPDATER_FOUND=false
   if [[ "$GOARCH" == "arm64" ]]; then
-    curl -fLso $DEST/updater "https://github.com/throneproj/updater/releases/latest/download/updater-linux-arm64"
+    assets=("updater-linux-arm64")
   else
-    curl -fLso $DEST/updater "https://github.com/throneproj/updater/releases/latest/download/updater-linux-amd64"
+    assets=("updater-linux-amd64" "updater-linux-x86_64")
   fi
-  chmod +x $DEST/updater
+  for asset in "${assets[@]}"; do
+    echo ">> Trying to download ${asset}..."
+    if curl -fLso $DEST/updater "https://github.com/throneproj/updater/releases/latest/download/${asset}"; then
+      echo ">> Successfully downloaded ${asset}"
+      chmod +x $DEST/updater
+      UPDATER_FOUND=true
+      break
+    fi
+  done
+  if [ "$UPDATER_FOUND" = false ]; then
+    echo "WARNING: Could not download Linux updater. Build will continue without it."
+  fi
 fi
 
 export CGO_ENABLED=0

@@ -62,13 +62,36 @@ echo ">> Downloading updater..."
 
 case "${GOOS}" in
     windows)
-        curl -fLso "${DEST}/updater.exe" \
-            "https://github.com/throneproj/updater/releases/latest/download/updater-windows64.exe"
+        UPDATER_FOUND=false
+        # Try different possible asset names for the windows updater
+        for asset in "updater-windows64.exe" "updater-windows-amd64.exe" "updater-win64.exe"; do
+            echo ">> Trying to download ${asset}..."
+            if curl -fLso "${DEST}/updater.exe" \
+                "https://github.com/throneproj/updater/releases/latest/download/${asset}"; then
+                echo ">> Successfully downloaded ${asset}"
+                UPDATER_FOUND=true
+                break
+            fi
+        done
+        if [ "$UPDATER_FOUND" = false ]; then
+            echo "WARNING: Could not download Windows updater. Build will continue without it."
+        fi
         ;;
     linux)
-        curl -fLso "${DEST}/updater" \
-            "https://github.com/throneproj/updater/releases/latest/download/updater-linux-amd64"
-        chmod +x "${DEST}/updater"
+        UPDATER_FOUND=false
+        for asset in "updater-linux-amd64" "updater-linux-x86_64"; do
+            echo ">> Trying to download ${asset}..."
+            if curl -fLso "${DEST}/updater" \
+                "https://github.com/throneproj/updater/releases/latest/download/${asset}"; then
+                echo ">> Successfully downloaded ${asset}"
+                chmod +x "${DEST}/updater"
+                UPDATER_FOUND=true
+                break
+            fi
+        done
+        if [ "$UPDATER_FOUND" = false ]; then
+            echo "WARNING: Could not download Linux updater. Build will continue without it."
+        fi
         ;;
 esac
 
