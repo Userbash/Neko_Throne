@@ -105,6 +105,9 @@ int main(int argc, char* argv[]) {
     // Headless environment fallback
     if (!args.contains("--offscreen") && qEnvironmentVariableIsEmpty("DISPLAY") && qEnvironmentVariableIsEmpty("WAYLAND_DISPLAY")) {
         qputenv("QT_QPA_PLATFORM", "offscreen");
+    } else if (qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM")) {
+        // Fallback for Wayland failures: try Wayland first, then fallback to X11 (xcb)
+        qputenv("QT_QPA_PLATFORM", "wayland;xcb");
     }
 #endif
 

@@ -61,13 +61,6 @@ version_standalone="NekoThrone-${INPUT_VERSION}"
 cd deployment
 mkdir -p debug
 
-# ─── Debian package ───────────────────────────────────────────────────────────
-echo ""
-echo ">> Building Debian package..."
-bash "${REPO_ROOT}/script/pack_debian.sh" "${INPUT_VERSION}"
-mv Throne.deb "${version_standalone}-debian-x64.deb"
-rm -rf Throne
-
 # ─── Linux amd64 archive ─────────────────────────────────────────────────────
 echo ""
 echo ">> Packing Linux amd64..."

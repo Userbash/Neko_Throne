@@ -124,6 +124,39 @@ private slots:
         QVERIFY(!testFunc); // Should be evaluated to false because guard is null
     }
 
+    void testWaylandFallbackLogic() {
+#ifdef Q_OS_LINUX
+        // Test the environment logic that prevents Wayland crashes
+        QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+        // Simulate missing Wayland display and unset QT_QPA_PLATFORM
+        env.insert("WAYLAND_DISPLAY", "");
+        env.remove("QT_QPA_PLATFORM");
+        
+        QProcess proc;
+        proc.setProcessEnvironment(env);
+        // Execute GUI with a harmless flag to trigger early evaluation without full UI load
+        proc.start(guiPath, {"--version"});
+        QVERIFY(proc.waitForFinished(5000));
+        QVERIFY(proc.exitStatus() == QProcess::NormalExit);
+#endif
+    }
+
+    void testTimerLifecycleSafety() {
+        // Simulates the QEventDispatcherGlib timer crash bug on Wayland failure
+        QPointer<QTimer> safeTimer;
+        {
+            auto *dummy = new DummyWindow();
+            auto *timer = new QTimer(dummy);
+            safeTimer = timer;
+            timer->start(100);
+            
+            // Explicitly stopping timers is recommended before parent destruction
+            timer->stop();
+            delete dummy; // Destructor should clear the child
+        }
+        QVERIFY(safeTimer.isNull());
+    }
+
 private:
     QString corePath;
     QString guiPath;

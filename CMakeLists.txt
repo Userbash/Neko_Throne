@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(Throne VERSION 0.5.0)
+project(Throne VERSION 0.0.0.1)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Strict amd64 enforcement — MUST be checked before any compilation targets

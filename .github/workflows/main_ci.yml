@@ -453,7 +453,7 @@ jobs:
     needs: [build]
     permissions: { contents: write, actions: read }
     env:
-      INPUT_VERSION: ${{ github.event.inputs.tag || format('0.5.0-nightly.{0}', github.run_number) }}
+      INPUT_VERSION: ${{ github.event.inputs.tag || format('0.0.0.1-nightly.{0}', github.run_number) }}
     steps:
       - uses: actions/checkout@v6.0.2
       - uses: actions/download-artifact@v8.0.1

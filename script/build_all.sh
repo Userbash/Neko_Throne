@@ -50,18 +50,19 @@ echo -e "${YELLOW}[2/5] Building Go Backend Core...${NC}"
     cd ../..
 } >> "$LOG_FILE" 2>&1
 
-echo -e "${YELLOW}[3/5] Compiling C++ Frontend (GUI) with g++ (NO LTO, NO OPT, CCACHE)...${NC}"
+echo -e "${YELLOW}[3/5] Compiling C++ Frontend (GUI) with g++ (NO LTO, O2 OPT, CCACHE)...${NC}"
 mkdir -p build && cd build
-# Принудительно g++, без LTO, без оптимизаций (-O0), использование ccache
+# Принудительно g++, без LTO, без PGO, оптимизация -O2, использование ccache
 cmake -GNinja \
-  -DCMAKE_BUILD_TYPE=Debug \
+  -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
   -DCMAKE_C_COMPILER_LAUNCHER=ccache \
   -DCMAKE_CXX_COMPILER=g++ \
   -DCMAKE_C_COMPILER=gcc \
   -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF \
-  -DCMAKE_CXX_FLAGS="-O0 -g" \
-  -DCMAKE_C_FLAGS="-O0 -g" \
+  -DENABLE_PGO=OFF \
+  -DCMAKE_CXX_FLAGS="-O2" \
+  -DCMAKE_C_FLAGS="-O2" \
   -DQt6_DIR="$QT_ROOT/lib/cmake/Qt6" \
   .. >> "../$LOG_FILE" 2>&1
 ninja >> "../$LOG_FILE" 2>&1
@@ -76,7 +77,6 @@ echo -e "${YELLOW}[5/5] Packaging...${NC}"
 export NO_STRIP=1
 export QT_ROOT="/var/home/sanya/Qt6.10/6.10.2/gcc_64"
 ./script/deploy_linux64.sh >> "$LOG_FILE" 2>&1
-./script/pack_debian.sh "0.5.1-qt6102-gxx-no-opt-$(date +%Y%m%d)" >> "$LOG_FILE" 2>&1
 
 echo -e "${GREEN}✔ STRICT BUILD SUCCESSFUL!${NC}"
 echo "Qt Version: 6.10.2"

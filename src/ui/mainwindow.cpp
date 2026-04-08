@@ -723,8 +723,14 @@ MainWindow::~MainWindow() {
     mainwindow = nullptr;
     MW_show_log = nullptr;
     MW_dialog_message = nullptr;
+    
+    if (TM_auto_update_subsctiption) {
+        TM_auto_update_subsctiption->stop();
+        TM_auto_update_subsctiption->deleteLater();
+    }
     TM_auto_update_subsctiption = nullptr;
     TM_auto_update_subsctiption_Reset_Minute = nullptr;
+
     delete ui;
 }
 
