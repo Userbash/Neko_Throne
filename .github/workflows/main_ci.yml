@@ -1,0 +1,478 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Neko Throne CI/CD — amd64 only (Linux + Windows)
+# ═══════════════════════════════════════════════════════════════════════════════
+name: Neko Throne CI/CD (amd64)
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Тег релиза и версия"
+        required: false
+        default: ""
+      publish:
+        description: "r — обычный релиз, p — предрелиз, пусто — не публиковать"
+        required: false
+  push:
+    branches: ["**"]
+    paths-ignore: ["**.md", LICENSE, "docs/**"]
+
+env:
+  QT_VERSION: "6.10.2"
+  GO_VERSION: "1.25.8"
+  CCACHE_MAXSIZE: 5G
+  CCACHE_COMPRESS: "true"
+  CCACHE_COMPRESSLEVEL: "6"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# ═════════════════════════════════════════════════════════════════════════════
+jobs:
+
+  # ─── Линтер ───────────────────────────────────────────────────────────────
+  lint:
+    name: 🔍 Линтер кода
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with: { submodules: recursive }
+      - run: ./scripts/ci/lint.sh
+      - uses: actions/upload-artifact@v7.0.0
+        if: always()
+        with:
+          name: lint-report
+          path: lint-report/
+          retention-days: 7
+
+  # ─── Проверка Go-кода ─────────────────────────────────────────────────────
+  lint-go:
+    name: 🔍 Линтер Go
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with: { submodules: recursive }
+      - name: 🛠️ Установка Go
+        uses: actions/setup-go@v6.3.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: core/server/go.sum
+      - name: 🔧 Генерация protobuf кода
+        run: |
+          PROTOC_VER="31.1"
+          curl -fLO --retry 3 "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VER}/protoc-${PROTOC_VER}-linux-x86_64.zip"
+          unzip "protoc-${PROTOC_VER}-linux-x86_64.zip" -d /tmp/protoc_install
+          sudo cp /tmp/protoc_install/bin/protoc /usr/local/bin/
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+          cd core/server/gen
+          protoc -I . --go_out=. --go-grpc_out=. libcore.proto
+      - name: 🔍 go vet
+        working-directory: core/server
+        run: go vet ./...
+
+  # ─── Статический анализ + sanitizer-сборка ───────────────────────────────
+  analyze:
+    name: 🔬 Анализ (clang-tidy + ASAN)
+    runs-on: ubuntu-22.04
+    continue-on-error: true
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with: { submodules: recursive }
+
+      - name: 📦 Установка инструментов анализа
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            clang clang-tidy \
+            cmake ninja-build \
+            libx11-dev libx11-xcb-dev libxcb-cursor-dev \
+            libxkbcommon-dev libxkbcommon-x11-dev \
+            libgl1-mesa-dev libdbus-1-dev libwayland-dev \
+            libxcb-icccm4-dev libxcb-image0-dev libxcb-keysyms1-dev \
+            libxcb-randr0-dev libxcb-render-util0-dev libxcb-shape0-dev \
+            libxcb-xfixes0-dev libxcb-xinerama0-dev libxcb-xkb-dev
+
+      - name: 🐍 Установка Python для Qt
+        uses: actions/setup-python@v6.2.0
+        with:
+          python-version: '3.11'
+
+      - name: 🗂️ Кэш Qt (analyze)
+        id: cache-qt-analyze
+        uses: actions/cache@v5.0.3
+        with:
+          path: ~/Qt
+          key: qt-linux-${{ env.QT_VERSION }}-aqt
+
+      - name: 🖼️ Установка Qt via aqt (analyze)
+        if: steps.cache-qt-analyze.outputs.cache-hit != 'true'
+        run: |
+          pip install -r scripts/ci/requirements-qt.txt
+          aqt install-qt linux desktop ${{ env.QT_VERSION }} --outputdir ~/Qt
+
+      - name: 🔧 Настройка окружения Qt (analyze)
+        run: |
+          QT_BASE="$HOME/Qt/${{ env.QT_VERSION }}"
+          if [[ -d "$QT_BASE/gcc_64" ]]; then
+            QT_ROOT="$QT_BASE/gcc_64"
+          elif [[ -d "$QT_BASE/linux_gcc_64" ]]; then
+            QT_ROOT="$QT_BASE/linux_gcc_64"
+          else
+            echo "Qt not found in $QT_BASE"; ls "$QT_BASE" 2>/dev/null; exit 1
+          fi
+          echo "CMAKE_PREFIX_PATH=$QT_ROOT" >> "$GITHUB_ENV"
+          echo "$QT_ROOT/bin" >> "$GITHUB_PATH"
+          echo "LD_LIBRARY_PATH=$QT_ROOT/lib" >> "$GITHUB_ENV"
+
+      - name: 📥 Заглушка Go-артефактов для сборки
+        run: |
+          # Create stub Go artifact directories so cmake/build don't fail on missing files
+          mkdir -p deployment/linux-amd64
+
+      - name: 🔬 Сборка с AddressSanitizer + UBSan
+        run: |
+          mkdir -p build-asan && cd build-asan
+          curl -fLso srslist.h \
+            "https://raw.githubusercontent.com/throneproj/routeprofiles/rule-set/srslist.h"
+
+          cmake .. \
+            -GNinja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined" \
+            -DCMAKE_C_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            2>&1 | tee ../lint-report/cmake-asan.log || true
+          ninja -j$(nproc) 2>&1 | tee ../lint-report/build-asan.log || true
+        continue-on-error: true
+
+      - name: 🧹 Запуск clang-tidy (из compile_commands.json)
+        run: |
+          mkdir -p lint-report
+          if [[ -f build-asan/compile_commands.json ]]; then
+            echo ">> Running clang-tidy with compile database..."
+            # Collect all project sources (exclude 3rdparty) as a single batch
+            mapfile -d '' TIDY_FILES < <(
+              find src -name '*.cpp' ! -path '*/3rdparty/*' -print0
+            )
+            if command -v run-clang-tidy &>/dev/null; then
+              run-clang-tidy \
+                -p build-asan \
+                -config-file .clang-tidy \
+                -header-filter "$(pwd)/(src|include)/.*" \
+                "${TIDY_FILES[@]}" \
+                2>&1 | tee lint-report/clang-tidy-full.txt || true
+            else
+              # Batch invocation — one clang-tidy call for all files
+              clang-tidy \
+                -p build-asan \
+                --config-file=.clang-tidy \
+                --header-filter="$(pwd)/(src|include)/.*" \
+                "${TIDY_FILES[@]}" \
+                2>&1 | tee lint-report/clang-tidy-full.txt || true
+            fi
+            TIDY_ISSUES=$(grep -c ': warning:\|: error:' lint-report/clang-tidy-full.txt 2>/dev/null || echo 0)
+            echo ">> clang-tidy (full): ${TIDY_ISSUES} diagnostic(s)."
+          else
+            echo ">> compile_commands.json not found — skipping full clang-tidy pass."
+          fi
+        continue-on-error: true
+
+      - name: 📤 Загрузка отчётов анализа
+        uses: actions/upload-artifact@v7.0.0
+        if: always()
+        with:
+          name: analyze-report
+          path: lint-report/
+          retention-days: 7
+
+  # ─── Сборка (Go + C++ в одном задании) ────────────────────────────────────
+  build:
+    name: "${{ matrix.os_label }}"
+    permissions: { contents: read }
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { platform: ubuntu-22.04,   os_label: linux,   cross_os: linux,   cross_arch: amd64 }
+          - { platform: windows-latest, os_label: windows, cross_os: windows, cross_arch: amd64 }
+    runs-on: ${{ matrix.platform }}
+    env:
+      INPUT_VERSION: ${{ github.event.inputs.tag }}
+
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with: { submodules: recursive }
+
+      # ── Go бэкенд ──────────────────────────────────────────────────────
+      - name: 📦 Кэш Go артефактов
+        id: cache-go
+        uses: actions/cache@v5.0.3
+        with:
+          path: go-artifacts.tgz
+          key: go-${{ matrix.cross_os }}-${{ hashFiles('scripts/ci/build_go.sh', 'core/**') }}-${{ env.GO_VERSION }}
+
+      - name: 🛠️ Установка Go
+        if: steps.cache-go.outputs.cache-hit != 'true'
+        uses: actions/setup-go@v6.3.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: core/server/go.sum
+
+      - name: 🔨 Сборка Go бэкенда
+        if: steps.cache-go.outputs.cache-hit != 'true'
+        shell: bash
+        env:
+          GOOS: ${{ matrix.cross_os }}
+          GOARCH: ${{ matrix.cross_arch }}
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            PROTOC_VER="31.1"
+            curl -fLO --retry 3 "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VER}/protoc-${PROTOC_VER}-win64.zip"
+            unzip "protoc-${PROTOC_VER}-win64.zip" -d protoc_install
+            export PATH="$PWD/protoc_install/bin:$PATH"
+            echo "$PWD/protoc_install/bin" >> "$GITHUB_PATH"
+          else
+            ./scripts/ci/setup_go.sh
+          fi
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+          ./scripts/ci/build_go.sh
+          tar czf go-artifacts.tgz ./deployment
+
+      - name: 📂 Распаковка Go артефактов
+        shell: bash
+        run: |
+          tar xzf go-artifacts.tgz
+          ART="download-artifact/NekoThrone-go-${{ matrix.cross_os }}-${{ matrix.cross_arch }}"
+          mkdir -p "$ART"
+          cp go-artifacts.tgz "$ART/artifacts.tgz"
+
+      # ── C++ инструментарий ─────────────────────────────────────────────
+      - name: ⚙️ Установка MSVC
+        if: matrix.os_label == 'windows'
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsPath = & $vswhere -latest -products * `
+            -requires Microsoft.VisualCpp.Tools.HostX64.TargetX64 `
+            -property installationPath
+          if (-not $vsPath) { throw "Visual Studio not found by vswhere" }
+          $vcvarsall = "$vsPath\VC\Auxiliary\Build\vcvarsall.bat"
+          if (-not (Test-Path $vcvarsall)) { throw "vcvarsall.bat not found: $vcvarsall" }
+          Write-Host "Configuring MSVC x64 from: $vcvarsall"
+
+          # Snapshot env before vcvarsall
+          $before = @{}
+          Get-ChildItem Env: | ForEach-Object { $before[$_.Name] = $_.Value }
+
+          # Run vcvarsall: suppress verbose stdout banner; stderr is NOT redirected
+          # so real error messages (wrong arch, missing SDK, etc.) appear in the log.
+          $lines = cmd /c "`"$vcvarsall`" x64 1>NUL && set"
+          if ($LASTEXITCODE -ne 0) {
+            throw "vcvarsall.bat x64 failed with exit code $LASTEXITCODE"
+          }
+          foreach ($line in $lines) {
+            if ($line -match '^([^=]+)=(.*)$') {
+              $n = $Matches[1]; $v = $Matches[2]
+              if ($n -ieq 'PATH') {
+                $existingPath = if ($before.ContainsKey('PATH')) { $before['PATH'] } else { '' }
+                $existing = ($existingPath -split ';')
+                ($v -split ';') | Where-Object { $_ -and $_ -notin $existing } |
+                  Add-Content $env:GITHUB_PATH
+              } elseif (!$before.ContainsKey($n) -or $before[$n] -ne $v) {
+                Add-Content $env:GITHUB_ENV "$n=$v"
+              }
+            }
+          }
+          Write-Host "MSVC x64 environment configured"
+
+      - name: 📚 Установка зависимостей сборки
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq \
+              ccache ninja-build \
+              libx11-dev libx11-xcb-dev libxcb-cursor-dev \
+              libxkbcommon-dev libxkbcommon-x11-dev \
+              libgl1-mesa-dev \
+              libdbus-1-dev \
+              libwayland-dev \
+              libxcb-icccm4-dev libxcb-image0-dev libxcb-keysyms1-dev \
+              libxcb-randr0-dev libxcb-render-util0-dev libxcb-shape0-dev \
+              libxcb-xfixes0-dev libxcb-xinerama0-dev libxcb-xkb-dev
+          else
+            choco install ccache -y
+          fi
+
+      - name: 🗂️ Восстановление кэша ccache (Linux)
+        if: matrix.os_label == 'linux'
+        uses: actions/cache@v5.0.3
+        with:
+          path: ~/.ccache
+          key: ccache-${{ matrix.os_label }}-${{ hashFiles('src/**', 'include/**', 'CMakeLists.txt') }}
+          restore-keys: ccache-${{ matrix.os_label }}-
+
+      - name: 🗂️ Восстановление кэша ccache (Windows)
+        if: matrix.os_label == 'windows'
+        uses: actions/cache@v5.0.3
+        with:
+          path: ~/AppData/Local/ccache
+          key: ccache-${{ matrix.os_label }}-${{ hashFiles('src/**', 'include/**', 'CMakeLists.txt') }}
+          restore-keys: ccache-${{ matrix.os_label }}-
+
+      # ── Qt (зависит от платформы) ──────────────────────────────────────
+      - name: 🐍 Установка Python для Qt (Linux)
+        if: matrix.os_label == 'linux'
+        uses: actions/setup-python@v6.2.0
+        with:
+          python-version: '3.11'
+
+      - name: 🗂️ Кэш Qt (Linux)
+        if: matrix.os_label == 'linux'
+        id: cache-qt-linux
+        uses: actions/cache@v5.0.3
+        with:
+          path: ~/Qt
+          key: qt-linux-${{ env.QT_VERSION }}-aqt
+
+      - name: 🖼️ Установка Qt via aqt (Linux)
+        if: matrix.os_label == 'linux' && steps.cache-qt-linux.outputs.cache-hit != 'true'
+        run: |
+          pip install -r scripts/ci/requirements-qt.txt
+          aqt install-qt linux desktop ${{ env.QT_VERSION }} --outputdir ~/Qt
+
+      - name: 🔧 Настройка окружения Qt (Linux)
+        if: matrix.os_label == 'linux'
+        run: |
+          QT_BASE="$HOME/Qt/${{ env.QT_VERSION }}"
+          if [[ -d "$QT_BASE/gcc_64" ]]; then
+            QT_ROOT="$QT_BASE/gcc_64"
+          elif [[ -d "$QT_BASE/linux_gcc_64" ]]; then
+            QT_ROOT="$QT_BASE/linux_gcc_64"
+          else
+            echo "Qt installation not found. Contents of $QT_BASE:"
+            ls -la "$QT_BASE" 2>/dev/null || echo "(directory missing)"
+            exit 1
+          fi
+          echo "Qt root: $QT_ROOT"
+          echo "Qt6_DIR=$QT_ROOT/lib/cmake/Qt6" >> "$GITHUB_ENV"
+          echo "CMAKE_PREFIX_PATH=$QT_ROOT" >> "$GITHUB_ENV"
+          echo "$QT_ROOT/bin" >> "$GITHUB_PATH"
+          echo "QT_PLUGIN_PATH=$QT_ROOT/plugins" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=$QT_ROOT/lib" >> "$GITHUB_ENV"
+
+      - name: 🗂️ Кэш статического Qt (Windows)
+        if: matrix.os_label == 'windows'
+        id: cache-win-qt
+        uses: actions/cache@v5.0.3
+        with:
+          path: qt6/build
+          key: win-qt-static-${{ env.QT_VERSION }}-${{ hashFiles('script/build_qt_static_windows.bat') }}
+
+      - name: 🔧 Сборка статического Qt (Windows)
+        if: matrix.os_label == 'windows' && steps.cache-win-qt.outputs.cache-hit != 'true'
+        shell: cmd
+        run: call .\script\build_qt_static_windows.bat ${{ env.QT_VERSION }}
+
+      # ── Конфигурация, сборка, деплой ──────────────────────────────────
+      - name: 🏗️ Сборка Neko Throne
+        shell: bash
+        run: |
+          mkdir -p build && cd build
+          curl -fLso srslist.h "https://raw.githubusercontent.com/throneproj/routeprofiles/rule-set/srslist.h"
+
+          CMAKE_ARGS=(
+            -GNinja
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          )
+
+          if [[ "${{ matrix.os_label }}" == "windows" ]]; then
+            export CMAKE_PREFIX_PATH="$PWD/../qt6/build/lib/cmake"
+            # Use clang-cl (MSVC-driver mode) so CMake sets MSVC=TRUE,
+            # enabling CMAKE_MSVC_RUNTIME_LIBRARY and the /MT static runtime
+            # that matches the statically-built Qt.
+            CMAKE_ARGS+=(
+              -DCMAKE_C_COMPILER=clang-cl
+              -DCMAKE_CXX_COMPILER=clang-cl
+            )
+          else
+            CMAKE_ARGS+=(-DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++")
+          fi
+
+          cmake "${CMAKE_ARGS[@]}" ..
+          ninja -j$(nproc 2>/dev/null || echo 4)
+          cd ..
+
+          if [[ "${{ matrix.os_label }}" == "windows" ]]; then
+            ./script/deploy_windows.sh
+          else
+            ./script/deploy_linux64.sh
+          fi
+
+      - name: 📊 Статистика ccache
+        if: always()
+        shell: bash
+        run: ccache -s
+
+      - name: 📝 Итог сборки
+        if: always()
+        shell: bash
+        run: |
+          echo "### 🏗️ Сборка завершена: ${{ matrix.os_label }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Платформа: \`${{ matrix.platform }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Go версия: \`${{ env.GO_VERSION }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Qt версия: \`${{ env.QT_VERSION }}\`" >> $GITHUB_STEP_SUMMARY
+
+      # ── Загрузка артефактов ────────────────────────────────────────────
+      - name: 📤 Загрузка артефактов
+        uses: actions/upload-artifact@v7.0.0
+        with:
+          name: NekoThrone-${{ matrix.os_label }}-amd64
+          path: deployment/
+          retention-days: 30
+
+  # ─── Публикация релиза ────────────────────────────────────────────────────
+  release:
+    name: 🚀 Публикация релиза
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    needs: [build]
+    permissions: { contents: write, actions: read }
+    env:
+      INPUT_VERSION: ${{ github.event.inputs.tag || format('0.5.0-nightly.{0}', github.run_number) }}
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: actions/download-artifact@v8.0.1
+        with: { path: download-artifact }
+      - name: 📋 Определение режима публикации
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            echo "PUBLISH_MODE=p" >> "$GITHUB_ENV"
+          else
+            echo "PUBLISH_MODE=${{ github.event.inputs.publish }}" >> "$GITHUB_ENV"
+          fi
+      - name: 📦 Упаковка и публикация
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./scripts/ci/release_pack.sh
+      - uses: actions/upload-artifact@v7.0.0
+        with: { name: debug-symbols, path: debug-symbols.zip }
+
+      - name: 📝 Итог публикации
+        if: always()
+        run: |
+          echo "### 🚀 Релиз: ${{ env.INPUT_VERSION }}" >> $GITHUB_STEP_SUMMARY

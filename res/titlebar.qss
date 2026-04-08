@@ -1,0 +1,46 @@
+/* TitleBar default stylesheet — applied globally, respects system theme via palette */
+
+#TitleBar {
+    background-color: palette(window);
+    border-bottom: 1px solid palette(mid);
+    min-height: 38px;
+    max-height: 38px;
+}
+
+#TitleBarLabel {
+    color: palette(window-text);
+    font-weight: 600;
+    font-size: 13px;
+    padding-left: 4px;
+}
+
+/* Window control buttons — common */
+#BtnMinimize, #BtnMaximize, #BtnClose {
+    border: none;
+    background: transparent;
+    color: palette(window-text);
+    font-size: 14px;
+    min-width: 46px;
+    max-width: 46px;
+    min-height: 38px;
+    max-height: 38px;
+    border-radius: 0px;
+}
+
+#BtnMinimize:hover, #BtnMaximize:hover {
+    background-color: rgba(128, 128, 128, 0.2);
+}
+
+#BtnClose:hover {
+    background-color: #e81123;
+    color: white;
+}
+
+#BtnMinimize:pressed, #BtnMaximize:pressed {
+    background-color: rgba(128, 128, 128, 0.35);
+}
+
+#BtnClose:pressed {
+    background-color: #c50f1f;
+    color: white;
+}

@@ -1,0 +1,1203 @@
+#include "include/configs/generate.h"
+#include "include/dataStore/Database.hpp"
+#include "include/configs/proxy/includes.h"
+#include "include/api/RPC.h"
+#include "include/global/Configs.hpp"
+#include "include/global/Utils.hpp"
+
+#include <QApplication>
+#include <QFileInfo>
+
+namespace Configs {
+
+    QString genTunName() {
+        auto tun_name = "throne-tun";
+        return tun_name;
+    }
+
+    void MergeJson(const QJsonObject &custom, QJsonObject &outbound) {
+        if (custom.isEmpty()) return;
+        for (const auto &key: custom.keys()) {
+            if (outbound.contains(key)) {
+                auto v = custom[key];
+                auto v_orig = outbound[key];
+                if (v.isObject() && v_orig.isObject()) {
+                    auto vo = v.toObject();
+                    QJsonObject vo_orig = v_orig.toObject();
+                    MergeJson(vo, vo_orig);
+                    outbound[key] = vo_orig;
+                } else {
+                    outbound[key] = v;
+                }
+            } else {
+                outbound[key] = custom[key];
+            }
+        }
+    }
+
+    inline OSType getOS()
+    {
+#ifdef Q_OS_LINUX
+        return Linux;
+#endif
+#ifdef Q_OS_WIN
+        return Windows;
+#endif
+        return Unknown;
+    }
+
+    QStringList getChainDomains (const std::shared_ptr<ProxyEntity>& ent, QString &error)
+    {
+        QStringList domains;
+        auto chain = ent->Chain();
+        if (!chain)
+        {
+            error = "Ent is Nullptr after cast to chain in getChainDomains, data is corrupted";
+            return domains;
+        }
+        auto entIDs = ent->Chain()->list;
+        for (int id : entIDs)
+        {
+            if (auto subEnt = profileManager->GetProfile(id); subEnt != nullptr)
+            {
+                if (auto addr = subEnt->outbound->GetAddress(); !addr.isEmpty() && !IsIpAddress(addr)) domains.append(addr);
+            }
+        }
+        return domains;
+    }
+
+    QStringList getEntDomains(const QList<int>& entIDs, QString &error)
+    {
+        QStringList domains;
+        for (const auto &id: entIDs)
+        {
+            if (auto ent = profileManager->GetProfile(id); ent != nullptr)
+            {
+                if (ent->type == "extracore") continue;
+                if (ent->type == "chain") domains << getChainDomains(ent, error);
+                else
+                {
+                    if (auto addr = ent->outbound->GetAddress(); !addr.isEmpty() && !IsIpAddress(addr)) domains.append(addr);
+                }
+            }
+        }
+
+        return domains;
+    }
+
+    void CalculatePrerequisities(std::shared_ptr<BuildSingBoxConfigContext> &ctx) {
+        ctx->tunEnabled = dataStore->spmode_vpn;
+        ctx->os = getOS();
+        if (ctx->os == Linux)
+        {
+            ctx->isResolvedUsed = ReadFileText("/etc/resolv.conf").contains("systemd-resolved");
+        }
+        auto preReqs = ctx->buildPrerequisities;
+        
+        // Get route chain
+        auto routeChain = profileManager->GetRouteChain(dataStore->routing->current_route_id);
+        if (routeChain == nullptr) {
+            ctx->error = "Routing profile does not exist, try resetting the route profile in Routing Settings";
+            return;
+        }
+
+        // Routing dependencies
+        auto neededOutbounds = routeChain->get_used_outbounds();
+        auto neededRuleSets = routeChain->get_used_rule_sets();
+        preReqs->routingDeps->defaultOutboundID = routeChain->defaultOutboundID;
+        preReqs->routingDeps->outboundMap[-1] = "proxy";
+        preReqs->routingDeps->outboundMap[-2] = "direct";
+        int suffix = 0;
+        for (const auto &item: *neededOutbounds) {
+            if (item < 0) continue;
+            auto neededEnt = profileManager->GetProfile(item);
+            if (neededEnt == nullptr) {
+                ctx->error = "The routing profile is referencing outbounds that no longer exist, consider revising your settings";
+                return;
+            }
+            if (neededEnt->type == "extracore" || neededEnt->type == "custom")
+            {
+                ctx->error = "Outbounds used in routing profile cannot be of types extracore or custom";
+                return;
+            }
+            if (neededEnt->type == "chain") {
+                auto chain = neededEnt->Chain();
+                if (chain == nullptr || chain->list.isEmpty()) {
+                    ctx->error = "Chain outbound in routing profile is empty or corrupted";
+                    return;
+                }
+                // Validate each hop
+                for (int hopID : chain->list) {
+                    auto hopEnt = profileManager->GetProfile(hopID);
+                    if (hopEnt == nullptr) {
+                        ctx->error = "Chain outbound in routing profile contains a missing profile";
+                        return;
+                    }
+                    if (hopEnt->type == "extracore" || hopEnt->type == "custom" || hopEnt->type == "chain") {
+                        ctx->error = "Chain hops in routing profile cannot be of types extracore, custom or chain";
+                        return;
+                    }
+                    // Collect domains for DNS direct rules
+                    auto addrs = getEntDomains({hopID}, ctx->error);
+                    if (!ctx->error.isEmpty()) return;
+                    if (!addrs.empty()) {
+                        for (const auto &addr : addrs) preReqs->dnsDeps->directDomains << addr;
+                        preReqs->dnsDeps->needDirectDnsRules = true;
+                    }
+                }
+                // Map chain id to tag of the outermost (first-built) hop
+                preReqs->routingDeps->outboundMap[item] = "route-" + Int2String(suffix);
+                // Build reversed hop list (matching main-chain build order: outer first)
+                QList<int> reversedHops;
+                for (int idx = chain->list.size() - 1; idx >= 0; idx--) reversedHops << chain->list[idx];
+                preReqs->routingDeps->routeOutboundGroups << reversedHops;
+                suffix += chain->list.size();
+            } else {
+                // Single-hop outbound (existing logic)
+                {
+                    auto entAddrs = getEntDomains({neededEnt->id}, ctx->error);
+                    if (!ctx->error.isEmpty()) return;
+                    if (!entAddrs.empty()) {
+                        for (const auto &addr: entAddrs)
+                            preReqs->dnsDeps->directDomains << addr;
+                        preReqs->dnsDeps->needDirectDnsRules = true;
+                    }
+                }
+                preReqs->routingDeps->outboundMap[item] = "route-" + Int2String(suffix++);
+                preReqs->routingDeps->neededOutbounds << item;
+                preReqs->routingDeps->routeOutboundGroups << QList<int>{item};
+            }
+        }
+
+        for (const auto &item: *neededRuleSets) {
+            preReqs->routingDeps->neededRuleSets << item;
+        }
+
+        // Direct domains
+        auto sets = routeChain->get_direct_sites();
+        for (const auto &item: sets) {
+            if (item.startsWith("ruleset:")) {
+                preReqs->dnsDeps->directRuleSets << item.mid(8);
+            }
+            if (item.startsWith("domain:")) {
+                preReqs->dnsDeps->directDomains << item.mid(7);
+            }
+            if (item.startsWith("suffix:")) {
+                preReqs->dnsDeps->directSuffixes << item.mid(7);
+            }
+            if (item.startsWith("keyword:")) {
+                preReqs->dnsDeps->directKeywords << item.mid(8);
+            }
+            if (item.startsWith("regex:")) {
+                preReqs->dnsDeps->directRegexes << item.mid(6);
+            }
+            preReqs->dnsDeps->needDirectDnsRules = true;
+        }
+        {
+            auto entAddrs = getEntDomains({ctx->ent->id}, ctx->error);
+            if (!ctx->error.isEmpty()) return;
+            if (!entAddrs.isEmpty()) {
+                for (const auto &addr: entAddrs) preReqs->dnsDeps->directDomains << addr;
+                preReqs->dnsDeps->needDirectDnsRules = true;
+            }
+        }
+        if (auto group = profileManager->GetGroup(ctx->ent->gid); group != nullptr)
+        {
+            QList<int> groupEnts;
+            if (auto frontEntID = group->front_proxy_id; frontEntID >= 0) groupEnts << frontEntID;
+            if (auto landingEntID = group->landing_proxy_id; landingEntID >= 0) groupEnts << landingEntID;
+            auto addrs = getEntDomains(groupEnts, ctx->error);
+            if (!ctx->error.isEmpty()) return;
+            for (const auto &addr: addrs)
+            {
+                preReqs->dnsDeps->directDomains << addr;
+            }
+        }
+
+        // Hijack
+        if (dataStore->enable_dns_server) {
+            for (const auto& rule : dataStore->dns_server_rules) {
+                if (rule.startsWith("ruleset:")) {
+                    preReqs->hijackDeps->hijackGeoAssets << rule.mid(8);
+                }
+                if (rule.startsWith("domain:")) {
+                    preReqs->hijackDeps->hijackDomains << rule.mid(7);
+                }
+                if (rule.startsWith("suffix:")) {
+                    preReqs->hijackDeps->hijackDomainSuffix << rule.mid(7);
+                }
+                if (rule.startsWith("regex:")) {
+                    preReqs->hijackDeps->hijackDomainRegex << rule.mid(6);
+                }
+            }
+        }
+        for (auto ruleSet : preReqs->hijackDeps->hijackGeoAssets) {
+            if (!preReqs->routingDeps->neededRuleSets.contains(ruleSet.toString())) preReqs->routingDeps->neededRuleSets.append(ruleSet.toString());
+        }
+
+        // Direct IPs
+        auto directIPraw = routeChain->get_direct_ips();
+        for (const auto &item: directIPraw) {
+            if (item.startsWith("ruleset:")) {
+                preReqs->tunDeps->directIPSets << item.mid(8);
+            }
+            if (item.startsWith("ip:")) {
+                preReqs->tunDeps->directIPCIDRs << item.mid(3);
+            }
+        }
+
+        // Extra core
+        if (ctx->ent->type == "extracore")
+        {
+            auto outbound = ctx->ent->ExtraCore();
+            if (outbound == nullptr)
+            {
+                MW_show_log("INVALID ENT TYPE, NEEDED EXTRACORE GOT NULLPTR");
+                ctx->error = "failed to cast to extracore, type is: " + ctx->ent->type;
+                return;
+            }
+            ctx->buildConfigResult->extraCoreData->path = QFileInfo(outbound->extraCorePath).canonicalFilePath();
+            ctx->buildConfigResult->extraCoreData->args = outbound->extraCoreArgs;
+            ctx->buildConfigResult->extraCoreData->config = outbound->extraCoreConf;
+            ctx->buildConfigResult->extraCoreData->configDir = GetBasePath();
+            ctx->buildConfigResult->extraCoreData->noLog = outbound->noLogs;
+        }
+
+        // Check if Xray DNS proxy inbound is needed (main entity or any routing outbound is Xray)
+        if (ctx->ent->outbound->IsXray()) ctx->needsXrayDnsProxy = true;
+        for (auto outboundID : preReqs->routingDeps->neededOutbounds) {
+            auto neededEnt = profileManager->GetProfile(outboundID);
+            if (neededEnt && neededEnt->outbound->IsXray()) {
+                ctx->needsXrayDnsProxy = true;
+                break;
+            }
+        }
+    }
+
+    void buildLogSections(std::shared_ptr<BuildSingBoxConfigContext> &ctx) {
+        ctx->buildConfigResult->coreConfig.insert("log", QJsonObject{{"level", dataStore->log_level}});
+    }
+
+    void buildNTPSection(std::shared_ptr<BuildSingBoxConfigContext> &ctx) {
+        if (dataStore->enable_ntp) {
+            QJsonObject ntpObj;
+            ntpObj["enabled"] = true;
+            ntpObj["server"] = dataStore->ntp_server_address;
+            ntpObj["server_port"] = dataStore->ntp_server_port;
+            ntpObj["interval"] = dataStore->ntp_interval;
+            ctx->buildConfigResult->coreConfig["ntp"] = ntpObj;
+        }
+    }
+
+    void buildCertificateSection(std::shared_ptr<BuildSingBoxConfigContext> &ctx) {
+        ctx->buildConfigResult->coreConfig.insert("certificate", QJsonObject{{"store", dataStore->use_mozilla_certs ? "mozilla" : "system"}});
+    }
+
+    QJsonObject buildDnsObj(QString address, std::shared_ptr<BuildSingBoxConfigContext> &ctx) {
+        if (address.startsWith("local")) {
+            if (ctx->tunEnabled && ctx->isResolvedUsed) {
+                return {{"type", "underlying"}};
+            }
+            return {{"type", "local"}};
+        }
+        if (address.startsWith("dhcp://")) {
+            auto ifcName = address.replace("dhcp://", "");
+            if (ifcName == "auto") ifcName = "";
+            return {
+                {"type", "dhcp"},
+                {"interface", ifcName},
+            };
+        }
+        QString addr = address;
+        int port = -1;
+        QString type = "udp";
+        QString path = "";
+        if (address.startsWith("tcp://")) {
+            type = "tcp";
+            addr = addr.replace("tcp://", "");
+        }
+        if (address.startsWith("tls://")) {
+            type = "tls";
+            addr = addr.replace("tls://", "");
+        }
+        if (address.startsWith("quic://")) {
+            type = "quic";
+            addr = addr.replace("quic://", "");
+        }
+        if (address.startsWith("https://")) {
+            type = "https";
+            addr = addr.replace("https://", "");
+            if (addr.contains("/")) {
+                path = addr.split("/").last();
+                addr = addr.left(addr.indexOf("/"));
+            }
+        }
+        if (address.startsWith("h3://")) {
+            type = "h3";
+            addr = addr.replace("h3://", "");
+            if (addr.contains("/")) {
+                path = addr.split("/").last();
+                addr = addr.left(addr.indexOf("/"));
+            }
+        }
+        if (addr.contains(":")) {
+            auto spl = addr.split(":");
+            addr = spl[0];
+            port = spl[1].toInt();
+        }
+        QJsonObject res = {
+            {"type", type},
+            {"server", addr},
+        };
+        if (port != -1) res["server_port"] = port;
+        if (!path.isEmpty()) res["path"] = path;
+
+        return res;
+    }
+
+    // On Linux+TUN, "localhost"/"local" would use underlying DNS and can trigger "No default interface".
+    // Return fallback only for exact localhost/local (not e.g. "local.domain.com").
+    inline QString effectiveDirectDnsForTun(const QString &address, const std::shared_ptr<BuildSingBoxConfigContext> &ctx) {
+        if (ctx->tunEnabled && getOS() == Linux && (address == "localhost" || address == "local"))
+            return "8.8.8.8";
+        return address;
+    }
+
+    void buildDNSSection(std::shared_ptr<BuildSingBoxConfigContext> &ctx, bool useDnsObj) {
+        if (dataStore->routing->use_dns_object && useDnsObj) {
+            ctx->buildConfigResult->coreConfig["dns"] = QString2QJsonObject(dataStore->routing->dns_object);
+            return;
+        }
+
+        auto dnsDeps = ctx->buildPrerequisities->dnsDeps;
+        auto hijackDeps = ctx->buildPrerequisities->hijackDeps;
+        bool isTailscale = ctx->ent->type == "tailscale";
+        bool independentCache = false;
+        QJsonArray servers;
+        QJsonArray rules;
+        // remote
+        if (!ctx->forTest) {
+            if (isTailscale)
+            {
+                auto tailscale = ctx->ent->Tailscale();
+                if (tailscale == nullptr)
+                {
+                    ctx->error = "Corrupted state, needed tailscale been but could not cast";
+                    return;
+                }
+                auto tailDns = QJsonObject{
+                        {"type", "tailscale"},
+                        {"tag", "dns-remote"},
+                        {"endpoint", "proxy"},
+                        {"accept_default_resolvers", tailscale->globalDNS},
+                    };
+                servers += tailDns;
+            } else
+            {
+                auto remoteDnsObj = buildDnsObj(dataStore->routing->remote_dns, ctx);
+                remoteDnsObj["tag"] = "dns-remote";
+                remoteDnsObj["domain_resolver"] = "dns-local";
+                remoteDnsObj["detour"] = "proxy";
+                servers += remoteDnsObj;
+            }
+        }
+
+        // direct: use effective address (localhost/local -> fallback on Linux+TUN to avoid "No default interface")
+        QString directDnsAddress = effectiveDirectDnsForTun(dataStore->routing->direct_dns, ctx);
+        auto directDnsObj = buildDnsObj(directDnsAddress, ctx);
+        directDnsObj["tag"] = "dns-direct";
+        directDnsObj["domain_resolver"] = "dns-local";
+        if (dataStore->routing->dns_final_out == "direct") {
+            servers.prepend(directDnsObj);
+        } else {
+            servers.append(directDnsObj);
+        }
+
+        // Handle localhost
+        if (!ctx->forTest) {
+            rules += QJsonObject{
+                    {"domain", "localhost"},
+                    {"action", "predefined"},
+                    {"query_type", "A"},
+                    {"rcode", "NOERROR"},
+                    {"answer", "localhost. IN A 127.0.0.1"},
+                };
+
+            rules += QJsonObject{
+                    {"domain", "localhost"},
+                    {"action", "predefined"},
+                    {"query_type", "AAAA"},
+                    {"rcode", "NOERROR"},
+                    {"answer", "localhost. IN AAAA ::1"},
+                };
+        }
+
+        // HijackRules
+        if (dataStore->enable_dns_server && !ctx->forTest)
+        {
+            rules += QJsonObject{
+                        {"rule_set", hijackDeps->hijackGeoAssets},
+                        {"domain", hijackDeps->hijackDomains},
+                        {"domain_suffix", hijackDeps->hijackDomainSuffix},
+                        {"domain_regex", hijackDeps->hijackDomainRegex},
+                        {"query_type", "A"},
+                        {"action", "predefined"},
+                        {"rcode", "NOERROR"},
+                        {"answer", QString("* IN A %1").arg(dataStore->dns_v4_resp)},
+                    };
+
+            if (!dataStore->dns_v6_resp.isEmpty())
+            {
+                rules += QJsonObject{
+                            {"rule_set", hijackDeps->hijackGeoAssets},
+                            {"domain", hijackDeps->hijackDomains},
+                            {"domain_suffix", hijackDeps->hijackDomainSuffix},
+                            {"domain_regex", hijackDeps->hijackDomainRegex},
+                            {"query_type", "AAAA"},
+                            {"action", "predefined"},
+                            {"rcode", "NOERROR"},
+                            {"answer", QString("* IN AAAA %1").arg(dataStore->dns_v6_resp)},
+                        };
+            }
+        }
+
+        // Direct DNS rules MUST come before FakeIP to avoid giving fake IPs to direct domains
+        if (dnsDeps->needDirectDnsRules) {
+            rules += QJsonObject{
+                    {"rule_set", dnsDeps->directRuleSets},
+                    {"domain", dnsDeps->directDomains},
+                    {"domain_suffix", dnsDeps->directSuffixes},
+                    {"domain_keyword", dnsDeps->directKeywords},
+                    {"domain_regex", dnsDeps->directRegexes},
+                    {"action", "route"},
+                    {"server", "dns-direct"},
+                };
+        }
+
+        // FakeIP — only after direct rules, so direct domains get real IPs
+        if (dataStore->fake_dns) {
+            servers += QJsonObject{
+                    {"tag", "dns-fake"},
+                    {"type", "fakeip"},
+                    {"inet4_range", "198.18.0.0/15"},
+                    {"inet6_range", "fc00::/18"},
+                };
+            // Exclude private/LAN queries from FakeIP (P2P, BitTorrent, local discovery)
+            rules += QJsonObject{
+                    {"ip_is_private", true},
+                    {"action", "route"},
+                    {"server", "dns-direct"},
+                };
+            rules += QJsonObject{
+                    {"query_type", QJsonArray{
+                        "A",
+                        "AAAA"
+                    }},
+                 {"action", "route"},
+                 {"server", "dns-fake"}
+            };
+            independentCache = true;
+        }
+
+        // Local: avoid "underlying" on Linux+TUN when no override set (prevents "No default interface" at startup)
+        QString dnsLocalAddress = dataStore->core_box_underlying_dns;
+        if (dnsLocalAddress.isEmpty()) {
+            if (ctx->tunEnabled && getOS() == Linux)
+                dnsLocalAddress = effectiveDirectDnsForTun(dataStore->routing->direct_dns, ctx);
+            if (dnsLocalAddress.isEmpty())
+                dnsLocalAddress = "local";
+        }
+        auto dnsLocalObj = buildDnsObj(dnsLocalAddress, ctx);
+        dnsLocalObj["tag"] = "dns-local";
+        servers += dnsLocalObj;
+
+        auto dnsObj = QJsonObject{
+            {"servers", servers},
+            {"rules", rules}
+        };
+        if (independentCache) dnsObj["independent_cache"] = true;
+        ctx->buildConfigResult->coreConfig["dns"] = dnsObj;
+    }
+
+    void buildInboundSection(std::shared_ptr<BuildSingBoxConfigContext> &ctx) {
+        auto tunDeps = ctx->buildPrerequisities->tunDeps;
+        QJsonArray inbounds;
+        // mixed
+        if (!ctx->forTest) {
+            QJsonObject inboundObj;
+            inboundObj["tag"] = "mixed-in";
+            inboundObj["type"] = "mixed";
+            inboundObj["listen"] = dataStore->inbound_address;
+            inboundObj["listen_port"] = dataStore->inbound_socks_port;
+            // Authentication — protects against external scanners abusing open ports
+            if (dataStore->inbound_auth
+                && !dataStore->inbound_username.isEmpty()
+                && !dataStore->inbound_password.isEmpty()) {
+                inboundObj["users"] = QJsonArray{QJsonObject{
+                    {"username", dataStore->inbound_username},
+                    {"password", dataStore->inbound_password},
+                }};
+            }
+            inbounds += inboundObj;
+        }
+
+        // Tun
+        if (dataStore->spmode_vpn && !ctx->forTest) {
+            QJsonObject inboundObj;
+            inboundObj["tag"] = "tun-in";
+            inboundObj["type"] = "tun";
+            inboundObj["interface_name"] = genTunName();
+            inboundObj["auto_route"] = true;
+            inboundObj["mtu"] = dataStore->vpn_mtu;
+            inboundObj["stack"] = dataStore->vpn_implementation;
+            inboundObj["strict_route"] = dataStore->vpn_strict_route;
+            if (ctx->os == Linux) inboundObj["auto_redirect"] = true;
+            auto tunAddress = QJsonArray{"172.19.0.1/24"};
+            if (dataStore->vpn_ipv6) tunAddress += "fdfe:dcba:9876::1/96";
+            inboundObj["address"] = tunAddress;
+
+            // On Linux: always exclude direct IPs from TUN so traffic (e.g. Tailscale/Headscale 100.64.0.0/10)
+            // is never marked by nftables (avoids asymmetric routing). On other platforms: only when default is proxy.
+            bool needRouteExclude = (ctx->os == Linux)
+                || (ctx->buildPrerequisities->routingDeps->defaultOutboundID == proxyID && dataStore->enable_tun_routing);
+            if (needRouteExclude) {
+                QJsonArray routeExcludeAddrs = {"127.0.0.0/8"};
+                QJsonArray routeExcludeSets;
+                for (const auto &item : tunDeps->directIPCIDRs) routeExcludeAddrs << item;
+                for (const auto &item : tunDeps->directIPSets) routeExcludeSets << item;
+                inboundObj["route_exclude_address"] = routeExcludeAddrs;
+                if (!routeExcludeSets.isEmpty()) inboundObj["route_exclude_address_set"] = routeExcludeSets;
+            }
+            inbounds += inboundObj;
+        }
+
+        // xray-dns-in for Xray DNS proxy — separate tag to avoid collision with the user DNS server inbound
+        if (!ctx->forTest && ctx->needsXrayDnsProxy) {
+            inbounds.prepend(QJsonObject{
+                {"tag", "xray-dns-in"},
+                {"type", "direct"},
+                {"listen", "127.0.0.1"},
+                {"listen_port", dataStore->core_dns_in_port}
+            });
+        }
+
+        // Hijack
+        if (dataStore->enable_redirect && !ctx->forTest) {
+            inbounds.prepend(QJsonObject{
+                {"tag", "hijack"},
+                {"type", "direct"},
+                {"listen", dataStore->redirect_listen_address},
+                {"listen_port", dataStore->redirect_listen_port},
+            });
+        }
+        if (dataStore->enable_dns_server && !ctx->forTest) {
+            inbounds.prepend(QJsonObject{
+                {"tag", "dns-in"},
+                {"type", "direct"},
+                {"listen", dataStore->dns_server_listen_lan ? "0.0.0.0" : "127.1.1.1"},
+                {"listen_port", dataStore->dns_server_listen_port},
+            });
+        }
+
+        // custom
+        if (!ctx->forTest) QJSONARRAY_ADD(inbounds, QString2QJsonObject(dataStore->custom_inbound)["inbounds"].toArray())
+        ctx->buildConfigResult->coreConfig["inbounds"] = inbounds;
+    }
+
+    void entIDListtoEntList(const QList<int>& entIDs, QList<std::shared_ptr<ProxyEntity>> &ents, QString& error)
+    {
+        bool hasExtracore = false;
+        bool hasCustom = false;
+        bool hasXray = false;
+        for (auto id : entIDs)
+        {
+            auto ent = profileManager->GetProfile(id);
+            if (ent == nullptr)
+            {
+                error = "Null proxy in chain, you may want to check your configs";
+                return;
+            }
+            if (ent->type == "chain")
+            {
+                error = "Chain in Chain is not allowed";
+                return;
+            }
+            if (ent->type == "extracore") hasExtracore = true;
+            if (ent->type == "custom" && ent->Custom()->type == "fullconfig") hasCustom = true;
+            if (ent->outbound->IsXray()) hasXray = true;
+            ents.append(ent);
+        }
+        if (ents.size() > 1 && (hasExtracore || hasCustom || hasXray))
+        {
+            error = "Cannot use Extracore or Custom or Xray configs in a chain";
+        }
+    }
+
+    QList<int> unwrapChain(int entID) {
+        auto ent = profileManager->GetProfile(entID);
+        if (ent == nullptr)
+        {
+            return {};
+        }
+        if (ent->type == "chain") {
+            auto chain = ent->Chain();
+            if (chain == nullptr) return {};
+            return chain->list;
+        }
+        return {entID};
+    }
+
+    void buildOutboundChain(std::shared_ptr<BuildSingBoxConfigContext> &ctx, const QList<int>& entIDs, const QString& prefix, bool includeProxy, bool link, int xrayPort = -1, int startSuffix = 0)
+    {
+        QList<std::shared_ptr<ProxyEntity>> ents;
+        entIDListtoEntList(entIDs, ents, ctx->error);
+        for (int idx = 0; idx < ents.size(); idx++)
+        {
+            auto tag = prefix + "-" + Int2String(startSuffix + idx);
+            QString nextTag;
+            if (idx < ents.size() - 1) nextTag = prefix + "-" + Int2String(startSuffix + idx + 1);
+            if (includeProxy && idx == 0) tag = "proxy";
+            const auto& ent = ents[idx];
+            auto [object, error] = ent->outbound->Build();
+            if (!error.isEmpty())
+            {
+                ctx->error += error;
+                return;
+            }
+            object["tag"] = tag;
+            if (!nextTag.isEmpty() && link) object["detour"] = nextTag;
+            if (ent->outbound->IsXray()) {
+                auto [xrayObj, xrayErr] = ent->outbound->BuildXray();
+                if (!xrayErr.isEmpty()) {
+                    ctx->error += xrayErr;
+                    return;
+                }
+                if (xrayPort == -1) xrayPort = MkPort();
+                object["server_port"] = xrayPort;
+                xrayObj["tag"] = tag;
+                ctx->xrayOutbounds.append({xrayPort, xrayObj});
+            }
+            if (ent->outbound->IsEndpoint())
+            {
+                ctx->endpoints.append(object);
+            } else
+            {
+                ctx->outbounds.append(object);
+            }
+            ent->traffic_data->id = ent->id;
+            ent->traffic_data->tag = tag.toStdString();
+            ctx->buildConfigResult->outboundStats += ent->traffic_data;
+        }
+    }
+
+    void buildOutboundsSection(std::shared_ptr<BuildSingBoxConfigContext> &ctx) {
+        // First, our own ent
+        bool noChain = ctx->ent->outbound->IsXray();
+        QList<int> entIDs;
+        auto group = profileManager->GetGroup(ctx->ent->gid);
+        if (group == nullptr)
+        {
+            ctx->error = "No group found for ent, data is corrupted";
+            return;
+        }
+        if (group->landing_proxy_id >= 0 && !noChain) entIDs.prepend(group->landing_proxy_id);
+        if (ctx->ent->type == "chain")
+        {
+            auto chain = ctx->ent->Chain();
+            if (chain == nullptr)
+            {
+                ctx->error = "Ent is nullptr after cast to chain, data is corrupted";
+                return;
+            }
+            for (int idx = chain->list.size()-1; idx >=0; idx--) entIDs.append(chain->list[idx]);
+        } else
+        {
+            entIDs.append(ctx->ent->id);
+        }
+        if (group->front_proxy_id >= 0 && !noChain) entIDs.append(group->front_proxy_id);
+        buildOutboundChain(ctx, entIDs, "config", true, true);
+
+        // Now, build the outbounds needed by the route profile
+        int routeSuffix = 0;
+        for (const auto& group : ctx->buildPrerequisities->routingDeps->routeOutboundGroups) {
+            bool linked = group.size() > 1;
+            buildOutboundChain(ctx, group, "route", false, linked, -1, routeSuffix);
+            routeSuffix += group.size();
+        }
+
+        // Add the direct outbound
+        ctx->outbounds.append(QJsonObject{
+        {"type", "direct"},
+        {"tag", "direct"}
+        });
+
+        ctx->buildConfigResult->coreConfig["endpoints"] = ctx->endpoints;
+        ctx->buildConfigResult->coreConfig["outbounds"] = ctx->outbounds;
+    }
+
+    void buildRouteSection(std::shared_ptr<BuildSingBoxConfigContext> &ctx) {
+        auto routeChain = profileManager->GetRouteChain(dataStore->routing->current_route_id);
+        if (routeChain == nullptr) {
+            ctx->error = "Routing profile does not exist, try resetting the route profile in Routing Settings";
+            return;
+        }
+        routeChain = std::make_shared<RoutingChain>(*routeChain);
+        auto routeDeps = ctx->buildPrerequisities->routingDeps;
+
+        // hijack
+        if (dataStore->enable_dns_server && !ctx->forTest)
+        {
+            auto sniffRule = std::make_shared<RouteRule>();
+            sniffRule->action = "sniff";
+            sniffRule->inbound = {"dns-in"};
+
+            auto redirRule = std::make_shared<RouteRule>();
+            redirRule->action = "hijack-dns";
+            redirRule->inbound = {"dns-in"};
+
+            routeChain->Rules.prepend(redirRule);
+            routeChain->Rules.prepend(sniffRule);
+        }
+        if (dataStore->enable_redirect && !ctx->forTest) {
+            auto sniffRule = std::make_shared<RouteRule>();
+            sniffRule->action = "sniff";
+            sniffRule->sniffOverrideDest = true;
+            sniffRule->inbound = {"hijack"};
+            routeChain->Rules.prepend(sniffRule);
+        }
+
+        // sniff and resolve
+        if (!dataStore->routing->domain_strategy.isEmpty())
+        {
+            auto resolveRule = std::make_shared<RouteRule>();
+            resolveRule->action = "resolve";
+            resolveRule->strategy = dataStore->routing->domain_strategy;
+            resolveRule->inbound = {"mixed-in", "tun-in"};
+            routeChain->Rules.prepend(resolveRule);
+        }
+        if (dataStore->routing->sniffing_mode != SniffingMode::DISABLE)
+        {
+            auto sniffRule = std::make_shared<RouteRule>();
+            sniffRule->action = "sniff";
+            sniffRule->inbound = {"mixed-in", "tun-in"};
+            routeChain->Rules.prepend(sniffRule);
+        }
+
+        // rules
+        auto routeRules = routeChain->get_route_rules(false, routeDeps->outboundMap);
+        routeRules.prepend(QJsonObject{
+            {"action", "route"},
+            {"process_path", FindCoreRealPath()},
+            {"outbound", "direct"},
+        });
+        // xray-dns-in sniff+hijack-dns must come BEFORE the NekoCore.exe process-path rule
+        // so that Xray's DNS queries are intercepted by sing-box DNS engine before the
+        // catch-all direct route fires. Prepend hijack-dns first, then sniff, so the final
+        // order is: [0]=sniff xray-dns-in, [1]=hijack-dns xray-dns-in, [2]=NekoCore.exe->direct.
+        if (ctx->needsXrayDnsProxy && !ctx->forTest) {
+            routeRules.prepend(QJsonObject{
+                {"action", "hijack-dns"},
+                {"inbound", QJsonArray{"xray-dns-in"}},
+            });
+            routeRules.prepend(QJsonObject{
+                {"action", "sniff"},
+                {"inbound", QJsonArray{"xray-dns-in"}},
+            });
+        }
+
+        // rulesets
+        auto ruleSetArray = QJsonArray();
+        for (const auto &item: routeDeps->neededRuleSets) {
+            if(auto url = QUrl(item); url.isValid() && url.fileName().contains(".srs")) {
+                ruleSetArray += QJsonObject{
+                            {"type", "remote"},
+                            {"tag", get_rule_set_name(item)},
+                            {"format", "binary"},
+                            {"url", item},
+                        };
+            }
+            else
+                if(ruleSetMap.contains(item.toStdString())) {
+                    ruleSetArray += QJsonObject{
+                                {"type", "remote"},
+                                {"tag", item},
+                                {"format", "binary"},
+                                {"url", get_jsdelivr_link(QString::fromStdString(ruleSetMap.at(item.toStdString())))},
+                            };
+                }
+        }
+
+        // add block
+        if (dataStore->adblock_enable) {
+            ruleSetArray += QJsonObject{
+                        {"type", "remote"},
+                        {"tag", "throne-adblocksingbox"},
+                        {"format", "binary"},
+                        {"url", get_jsdelivr_link("https://raw.githubusercontent.com/217heidai/adblockfilters/main/rules/adblocksingbox.srs")},
+                    };
+        }
+
+        // apply
+        QJsonObject route;
+        route["rules"] = routeRules;
+        route["rule_set"] = ruleSetArray;
+        route["final"] = outboundIDToString(routeChain->defaultOutboundID);
+        if (dataStore->enable_stats)  route["find_process"] = true;
+        route["default_domain_resolver"] = QJsonObject{
+                                {"server", "dns-direct"},
+                                {"strategy", dataStore->routing->outbound_domain_strategy}};
+        if (dataStore->spmode_vpn) route["auto_detect_interface"] = true;
+
+        ctx->buildConfigResult->coreConfig["route"] = route;
+    }
+
+    void buildExperimentalSection(std::shared_ptr<BuildSingBoxConfigContext> &ctx) {
+        if (ctx->forTest) return;
+
+        QJsonObject experimentalObj;
+        QJsonObject clash_api = {
+            {"default_mode", ""} // dummy to make sure it is created
+        };
+        if (dataStore->core_box_clash_api > 0){
+            clash_api = {
+                {"external_controller", dataStore->core_box_clash_listen_addr + ":" + Int2String(dataStore->core_box_clash_api)},
+                {"secret", dataStore->core_box_clash_api_secret},
+                {"external_ui", "dashboard"},
+                };
+        }
+        if (dataStore->core_box_clash_api > 0 || dataStore->enable_stats)
+        {
+            experimentalObj["clash_api"] = clash_api;
+        }
+
+        QJsonObject cache_file = {
+            {"enabled", true},
+            {"store_fakeip", true},
+            {"store_rdrc", true}
+        };
+        experimentalObj["cache_file"] = cache_file;
+
+        if (experimentalObj.isEmpty()) return;
+
+        // apply
+        ctx->buildConfigResult->coreConfig["experimental"] = experimentalObj;
+    }
+
+    void buildXrayConfig(std::shared_ptr<BuildSingBoxConfigContext> &ctx) {
+        if (ctx->xrayOutbounds.isEmpty()) return;
+        ctx->buildConfigResult->isXrayNeeded = true;
+        QJsonObject dnsObj;
+        QJsonArray inbounds;
+        QJsonArray outbounds;
+        QJsonArray routeRules;
+        int dnsPort = dataStore->core_dns_in_port;
+
+        if (!ctx->forTest) {
+            dnsObj = {
+                {"servers", QJsonArray{
+                    QJsonObject{
+                        {"address", "127.0.0.1"},
+                        {"port", dnsPort},
+                        {"queryStrategy", "UseIPv4"},
+                        {"skipFallBack", true}
+                    },
+                    QJsonObject{
+                        {"address", "127.0.0.1"},
+                        {"port", dnsPort},
+                        {"queryStrategy", "UseIPv6"},
+                        {"skipFallBack", true}
+                    }
+                }}
+            };
+        }
+
+        for (auto [port, outboundObj] : ctx->xrayOutbounds) {
+            auto inboundTag = outboundObj["tag"].toString() + "-inbound";
+            inbounds << QJsonObject{
+                {"tag", inboundTag},
+                {"listen", "127.0.0.1"},
+                {"port", port},
+                {"protocol", "socks"},
+                {"settings", QJsonObject{{"auth", "noauth"}, {"udp", true}}}
+            };
+            outbounds << outboundObj;
+            routeRules << QJsonObject{
+                {"type", "field"},
+                {"inboundTag", QJsonArray{inboundTag}},
+                {"outboundTag", outboundObj["tag"].toString()}
+            };
+        }
+
+        // Route DNS queries to local sing-box DNS inbound
+        if (!ctx->forTest) {
+            outbounds << QJsonObject{
+                {"tag", "direct"},
+                {"protocol", "freedom"},
+            };
+            routeRules << QJsonObject{
+                {"type", "field"},
+                {"ip", QJsonArray{"127.0.0.1"}},
+                {"port", dnsPort},
+                {"outboundTag", "direct"},
+            };
+        }
+
+        ctx->buildConfigResult->xrayConfig["log"] = QJsonObject{
+        {"loglevel", dataStore->xray_log_level},
+        {"access", dataStore->xray_log_level == "info" ? "" : "none"}
+        };
+        if (!ctx->forTest) ctx->buildConfigResult->xrayConfig["dns"] = dnsObj;
+        ctx->buildConfigResult->xrayConfig["inbounds"] = inbounds;
+        ctx->buildConfigResult->xrayConfig["outbounds"] = outbounds;
+        ctx->buildConfigResult->xrayConfig["routing"] = QJsonObject{
+            {"domainStrategy", "AsIs"},
+            {"rules", routeRules},
+        };
+    }
+
+    std::shared_ptr<BuildConfigResult> BuildSingBoxConfig(const std::shared_ptr<ProxyEntity>& ent) {
+        if (ent->type == "custom")
+        {
+            auto res = std::make_shared<BuildConfigResult>();
+            auto custom = ent->Custom();
+            if (custom == nullptr)
+            {
+                res->error = "Corrupted data, needed custom ent, got nullptr";
+                return res;
+            }
+            if (custom->type == "fullconfig")
+            {
+                res->coreConfig = custom->Build().object;
+                return res;
+            }
+        }
+
+        auto ctx = std::make_shared<BuildSingBoxConfigContext>();
+        ctx->ent = ent;
+        ctx->buildConfigResult->outboundStats << std::make_shared<Stats::TrafficData>("direct");
+
+        CalculatePrerequisities(ctx);
+
+        // log
+        buildLogSections(ctx);
+        // ntp
+        buildNTPSection(ctx);
+        // DNS
+        buildDNSSection(ctx);
+        if (!ctx->error.isEmpty())
+        {
+            MW_show_log("Config build error:" + ctx->error);
+            ctx->buildConfigResult->error = ctx->error;
+            return ctx->buildConfigResult;
+        }
+        // certificate
+        buildCertificateSection(ctx);
+        // Inbound
+        buildInboundSection(ctx);
+        if (!ctx->error.isEmpty())
+        {
+            MW_show_log("Config build error:" + ctx->error);
+            ctx->buildConfigResult->error = ctx->error;
+            return ctx->buildConfigResult;
+        }
+        // outbound
+        buildOutboundsSection(ctx);
+        if (!ctx->error.isEmpty())
+        {
+            MW_show_log("Config build error:" + ctx->error);
+            ctx->buildConfigResult->error = ctx->error;
+            return ctx->buildConfigResult;
+        }
+        // Route
+        buildRouteSection(ctx);
+        if (!ctx->error.isEmpty())
+        {
+            MW_show_log("Config build error:" + ctx->error);
+            ctx->buildConfigResult->error = ctx->error;
+            return ctx->buildConfigResult;
+        }
+        // experimental
+        buildExperimentalSection(ctx);
+        if (!ctx->error.isEmpty())
+        {
+            MW_show_log("Config build error:" + ctx->error);
+            ctx->buildConfigResult->error = ctx->error;
+            return ctx->buildConfigResult;
+        }
+        // xray
+        buildXrayConfig(ctx);
+        if (!ctx->error.isEmpty()) {
+            MW_show_log("Config build error:" + ctx->error);
+            ctx->buildConfigResult->error = ctx->error;
+            return ctx->buildConfigResult;
+        }
+        return ctx->buildConfigResult;
+    }
+
+    bool IsValid(const std::shared_ptr<ProxyEntity>& ent)
+    {
+        if (ent->type == "chain")
+        {
+            auto chain = ent->Chain();
+            if (chain == nullptr)
+            {
+                MW_show_log("Corrupted data, needed chain ent, got nullptr");
+                return false;
+            }
+            for (int eId : chain->list)
+            {
+                auto e = profileManager->GetProfile(eId);
+                if (e == nullptr)
+                {
+                    MW_show_log("Null ent in validator");
+                    return false;
+                }
+                if (!IsValid(e))
+                {
+                    MW_show_log("Invalid ent in chain: ID=" + QString::number(eId));
+                    return false;
+                }
+            }
+            return true;
+        }
+        QJsonObject conf;
+        bool fullConf = false;
+        if (ent->type == "custom")
+        {
+            auto custom = ent->Custom();
+            if (custom == nullptr)
+            {
+                MW_show_log("Corrupted data in isValid, needed custom ent, got nullptr");
+                return false;
+            }
+            if (custom->type == "fullconfig")
+            {
+                conf = QString2QJsonObject(custom->config);
+                fullConf = true;
+            }
+        }
+        if (!fullConf)
+        {
+            auto out = ent->outbound->Build();
+            auto outArr = QJsonArray{out.object};
+            auto key = ent->outbound->IsEndpoint() ? "endpoints" : "outbounds";
+            conf = {
+                {key, outArr},
+                };
+        }
+        bool ok;
+        conf.insert("log", QJsonObject{{"level", dataStore->log_level}});
+        auto resp = API::defaultClient->CheckConfig(&ok, QJsonObject2QString(conf, true));
+        if (!ok)
+        {
+            MW_show_log("Failed to Call the Core: " + resp);
+            return false;
+        }
+        if (resp.isEmpty()) return true;
+        // else
+        MW_show_log("Invalid ent " + ent->outbound->name + ": " + resp);
+        return false;
+    }
+
+    std::shared_ptr<BuildTestConfigResult> BuildTestConfig(const QList<std::shared_ptr<ProxyEntity> > &profiles)
+    {
+        auto res = std::make_shared<BuildTestConfigResult>();
+        auto ctx = std::make_shared<BuildSingBoxConfigContext>();
+        ctx->forTest = true;
+        QList<int> entIDs;
+        for (const auto& proxy : profiles) entIDs << proxy->id;
+        ctx->buildPrerequisities->dnsDeps->directDomains = QListStr2QJsonArray(getEntDomains(entIDs, ctx->error));
+        if (!ctx->buildPrerequisities->dnsDeps->directDomains.isEmpty()) ctx->buildPrerequisities->dnsDeps->needDirectDnsRules = true;
+        buildDNSSection(ctx);
+        if (!ctx->error.isEmpty())
+        {
+            res->error = ctx->error;
+            return res;
+        }
+        buildLogSections(ctx);
+        buildCertificateSection(ctx);
+        buildNTPSection(ctx);
+        int suffix = 1;
+
+        int xrayPortIdx=0;
+        int xrayCount=0;
+        for (const auto& proxy : profiles) {
+            if (proxy->outbound->IsXray()) xrayCount++;
+        }
+        auto xrayPorts = MkManyPorts(xrayCount);
+
+        for (const auto& item : profiles)
+        {
+            if (item->type == "extracore")
+            {
+                MW_show_log("Skipping ExtraCore conf");
+                continue;
+            }
+            if (item->type == "tailscale")
+            {
+                MW_show_log("Skipping Tailscale conf");
+                continue;
+            }
+            if (!IsValid(item)) {
+                MW_show_log("Skipping invalid config: " + item->outbound->name);
+                item->latency = -1;
+                continue;
+            }
+            if (item->type == "custom")
+            {
+                auto custom = item->Custom();
+                if (custom == nullptr)
+                {
+                    MW_show_log("Corrupted data in build test config");
+                    res->error = "Corrupted data in build test config";
+                    return res;
+                }
+                if (custom->type == "fullconfig")
+                {
+                    auto obj = QString2QJsonObject(custom->config);
+                    obj["inbounds"] = QJsonArray();
+                    res->fullConfigs[item->id] = QJsonObject2QString(obj, true);
+                    continue;
+                }
+            }
+            auto IDs = unwrapChain(item->id);
+            auto group = profileManager->GetGroup(item->gid);
+            if (group == nullptr) {
+                res->error = "Null group on profile, data is corrupted";
+                return res;
+            }
+            if (group->landing_proxy_id >= 0 && !item->outbound->IsXray()) IDs.prepend(group->landing_proxy_id);
+            if (group->front_proxy_id >= 0 && !item->outbound->IsXray()) IDs.append(group->front_proxy_id);
+            buildOutboundChain(ctx, IDs, "proxy-" + Int2String(suffix), false, true, item->outbound->IsXray() ? xrayPorts[xrayPortIdx++] : -1);
+            if (!ctx->error.isEmpty()) {
+                res->error = ctx->error;
+                return res;
+            }
+            auto tag = "proxy-" + Int2String(suffix) + "-0";
+            res->outboundTags << tag;
+            res->tag2entID.insert(tag, item->id);
+            suffix++;
+        }
+        buildXrayConfig(ctx);
+        if (!ctx->error.isEmpty()) {
+            res->error = ctx->error;
+            return res;
+        }
+        ctx->outbounds << QJsonObject{{"type", "direct"}, {"tag", "direct"}};
+        ctx->buildConfigResult->coreConfig["outbounds"] = ctx->outbounds;
+        ctx->buildConfigResult->coreConfig["endpoints"] = ctx->endpoints;
+        ctx->buildConfigResult->coreConfig["route"] = QJsonObject{
+                {"auto_detect_interface", true},
+                {"default_domain_resolver", QJsonObject{
+                        {"server", "dns-direct"},
+                        {"strategy", dataStore->routing->outbound_domain_strategy},
+                   }}
+        };
+        res->coreConfig = ctx->buildConfigResult->coreConfig;
+        res->xrayConfig = ctx->buildConfigResult->xrayConfig;
+        res->isXrayNeeded = ctx->buildConfigResult->isXrayNeeded;
+
+        return res;
+    }
+}
+
