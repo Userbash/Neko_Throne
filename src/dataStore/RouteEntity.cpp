@@ -645,6 +645,17 @@ namespace Configs {
             processes.append("ktorrent");
             processes.append("FrostWire.exe");
             processes.append("BitTorrentWebHelper.exe");
+            processes.append("PicoTorrent.exe");
+            processes.append("picotorrent");
+            processes.append("BiglyBT.exe");
+            processes.append("biglybt");
+            processes.append("fdm.exe");
+            processes.append("Tribler.exe");
+            processes.append("tribler");
+            processes.append("LBRY.exe");
+            processes.append("lbry");
+            processes.append("Folx.exe");
+            processes.append("\u00B5Torrent.exe");
             processRule["process_name"] = processes;
             expandedRules.append(processRule);
             

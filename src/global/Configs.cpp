@@ -452,10 +452,15 @@ namespace Configs {
         bool admin = false;
 #ifdef Q_OS_WIN
         admin = Windows_IsInAdmin();
-        dataStore->windows_set_admin = admin;
+        if (dataStore) {
+            dataStore->windows_set_admin = admin;
+        }
 #else
-        bool ok;
-        auto isPrivileged = API::defaultClient->IsPrivileged(&ok);
+        bool ok = false;
+        bool isPrivileged = false;
+        if (API::defaultClient) {
+            isPrivileged = API::defaultClient->IsPrivileged(&ok);
+        }
         admin = ok && isPrivileged;
 #endif
         isAdminCache = admin;

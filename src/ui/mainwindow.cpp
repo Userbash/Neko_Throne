@@ -67,12 +67,15 @@ void UI_InitMainWindow() {
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     mainwindow = this;
     setAcceptDrops(true);
-    MW_dialog_message = [=,this](const QString &a, const QString &b) {
-        runOnUiThread([=,this]
-        {
-            dialog_message_impl(a, b);
-        });
-    };
+    QPointer<MainWindow> safeThis(this);
+    MW_dialog_message.assign(this, [safeThis](const QString &a, const QString &b) {
+        if (safeThis) {
+            runOnUiThread([safeThis, a, b]
+            {
+                if (safeThis) safeThis->dialog_message_impl(a, b);
+            });
+        }
+    });
 
     // Load Manager
     Configs::profileManager->LoadManager();
@@ -132,9 +135,13 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         auto bar = ui->masterLogBrowser->verticalScrollBar();
         bar->setValue(bar->maximum());
     });
-    MW_show_log = [=,this](const QString &log) {
-        runOnUiThread([=,this] { show_log_impl(log); });
-    };
+    MW_show_log.assign(this, [safeThis](const QString &log) {
+        if (safeThis) {
+            runOnUiThread([safeThis, log] {
+                if (safeThis) safeThis->show_log_impl(log);
+            });
+        }
+    });
 
     // Listen port if random
     if (Configs::dataStore->random_inbound_port)
@@ -632,20 +639,21 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     connect(qApp, &QGuiApplication::commitDataRequest, this, &MainWindow::on_commitDataRequest);
 
     auto *t_status = new QTimer(this);
-    connect(t_status, &QTimer::timeout, this, [=,this]() { if (ui) refresh_status(); });
+    connect(t_status, &QTimer::timeout, this, [this]() { if (ui) refresh_status(); });
     t_status->start(2000);
 
     auto *t_counter = new QTimer(this);
-    connect(t_counter, &QTimer::timeout, this, [&] { Configs_sys::logCounter.fetchAndStoreRelaxed(0); });
+    connect(t_counter, &QTimer::timeout, this, []() { Configs_sys::logCounter.storeRelease(0); });
     t_counter->start(1000);
 
     // auto update timer
-    TM_auto_update_subsctiption = new QTimer;
-    TM_auto_update_subsctiption_Reset_Minute = [&](int m) {
+    TM_auto_update_subsctiption = new QTimer(this);
+    TM_auto_update_subsctiption_Reset_Minute = [this](int m) {
+        if (!TM_auto_update_subsctiption) return;
         TM_auto_update_subsctiption->stop();
         if (m >= 30) TM_auto_update_subsctiption->start(m * 60 * 1000);
     };
-    connect(TM_auto_update_subsctiption, &QTimer::timeout, this, [&] { UI_update_all_groups(true); });
+    connect(TM_auto_update_subsctiption, &QTimer::timeout, this, [this] { UI_update_all_groups(true); });
     TM_auto_update_subsctiption_Reset_Minute(Configs::dataStore->sub_auto_update);
 
     if (!Configs::dataStore->flag_tray) show();
@@ -712,6 +720,11 @@ void MainWindow::dropEvent(QDropEvent* event)
 }
 
 MainWindow::~MainWindow() {
+    mainwindow = nullptr;
+    MW_show_log = nullptr;
+    MW_dialog_message = nullptr;
+    TM_auto_update_subsctiption = nullptr;
+    TM_auto_update_subsctiption_Reset_Minute = nullptr;
     delete ui;
 }
 

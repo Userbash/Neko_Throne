@@ -61,15 +61,14 @@ namespace QtGrpc {
         static QByteArray processReply(QNetworkReply *networkReply, QNetworkReply::NetworkError &statusCode) {
             if (networkReply->error() != QNetworkReply::NoError) {
                 statusCode = networkReply->error();
+                MW_show_log(QString("[gRPC] Network Error: %1 (%2)").arg(networkReply->errorString()).arg(static_cast<int>(statusCode)));
                 return {};
             }
 
             auto errCode = networkReply->rawHeader(GrpcStatusHeader).toInt();
             if (errCode != 0) {
-                QStringList errstr;
-                errstr << "grpc-status error code:" << Int2String(errCode) << ", error msg:"
-                       << QLatin1String(networkReply->rawHeader(GrpcStatusMessage));
-                MW_show_log(errstr.join(" "));
+                QString errMessage = QLatin1String(networkReply->rawHeader(GrpcStatusMessage));
+                MW_show_log(QString("[gRPC] Status Error: %1, Message: %2").arg(errCode).arg(errMessage));
                 statusCode = QNetworkReply::NetworkError::ProtocolUnknownError;
                 return {};
             }
@@ -159,7 +158,7 @@ namespace API {
 
 #define NOT_OK      \
     *rpcOK = false; \
-    onError(QString("QNetworkReply::NetworkError code: %1\n").arg(status));
+    onError(QString("[gRPC] Call failed. NetworkError code: %1\n").arg(static_cast<int>(status)));
 
     QString Client::Start(bool *rpcOK, const libcore::LoadConfigReq &request) {
         libcore::ErrorResp reply;

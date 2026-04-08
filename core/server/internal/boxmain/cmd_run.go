@@ -49,11 +49,17 @@ func parseConfig(ctx context.Context, configContent []byte) (*option.Options, er
 	return &options, nil
 }
 
-func Create(configContent []byte) (*boxbox.Box, context.CancelFunc, error) {
+func Create(configContent []byte, disableDNS bool) (*boxbox.Box, context.CancelFunc, error) {
 	preRun(nil, nil)
 	options, err := parseConfig(globalCtx, configContent)
 	if err != nil {
 		return nil, nil, err
+	}
+	if disableDNS {
+		if options.DNS == nil {
+			options.DNS = &option.DNSOptions{}
+		}
+		options.DNS.DisableCache = true
 	}
 	if disableColor {
 		if options.Log == nil {
@@ -99,7 +105,7 @@ func run() error {
 	signal.Notify(osSignals, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(osSignals)
 	for {
-		instance, cancel, err := Create([]byte{})
+		instance, cancel, err := Create([]byte{}, false)
 		if err != nil {
 			return err
 		}

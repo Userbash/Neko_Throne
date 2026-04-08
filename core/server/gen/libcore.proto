@@ -46,6 +46,7 @@ message LoadConfigReq {
   optional bool need_xray = 9 [default = false];
   optional string xray_config = 10 [default = ""];
   optional string tun_ipv4_cidr = 11 [default = ""];
+  optional bool disable_dns_routing = 12 [default = false];
 }
 
 message URLTestResp {
@@ -90,6 +91,8 @@ message ConnectionMetaData {
   optional string protocol = 8 [default = ""];
   optional string domain = 9 [default = ""];
   optional string process = 10 [default = ""];
+  optional string wifi_ssid = 11 [default = ""];
+  optional string wifi_bssid = 12 [default = ""];
 }
 
 message SetSystemDNSRequest {

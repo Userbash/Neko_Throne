@@ -51,7 +51,8 @@ mkdir -p deployment
 for _adir in download-artifact/NekoThrone-*/; do
     if [[ -d "${_adir}" ]]; then
         echo ">> Merging ${_adir} -> deployment/"
-        cp -r "${_adir}." deployment/
+        # Use ${var%/} to remove potential trailing slash and then /. to copy contents
+        cp -r "${_adir%/}/." deployment/
     fi
 done
 

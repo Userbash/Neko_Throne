@@ -1,6 +1,6 @@
 module ThroneCore
 
-go 1.25.8
+go 1.25.9
 
 require (
 	github.com/Mahdi-zarei/speedtest-go v1.7.13-0.20260107171856-79c565dfd83a
@@ -8,7 +8,7 @@ require (
 	github.com/gofrs/uuid/v5 v5.4.0
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/sagernet/sing v0.8.2
-	github.com/sagernet/sing-box v1.13.2
+	github.com/sagernet/sing-box v1.13.6
 	github.com/sagernet/sing-tun v0.8.2
 	github.com/spf13/cobra v1.10.2
 	github.com/xtls/xray-core v1.260206.0

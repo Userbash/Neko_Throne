@@ -2,79 +2,79 @@
 
 ## DNS Leak Prevention
 
-### Текущие механизмы защиты:
+### Current Protection Mechanisms:
 
 1. **VPN Strict Route** ✅
-   - Включено по умолчанию на Windows 10+ и всех других платформах
-   - Предотвращает обход VPN туннеля
-   - Местоположение: `src/configs/generate.cpp` (строка 522)
+   - Enabled by default on Windows 10+ and other platforms.
+   - Prevents traffic from bypassing the VPN tunnel.
+   - Location: `src/configs/generate.cpp`.
 
-2. **Раздельный DNS** ✅
-   - Remote DNS через proxy (для проксируемых доменов)
-   - Direct DNS напрямую (для локальных/whitelisted доменов)
-   - Предотвращает утечку DNS запросов
+2. **Split DNS** ✅
+   - Remote DNS via proxy (for proxied domains).
+   - Direct DNS for local/whitelisted domains.
+   - Prevents DNS query leakage.
 
 3. **DNS over H3/HTTPS/TLS/QUIC** ✅
-   - Поддержка шифрованных DNS протоколов
-   - Защита от прослушивания DNS запросов ISP
-   - Примеры: `h3://1.1.1.1/dns-query`, `https://dns.google/dns-query`
+   - Support for encrypted DNS protocols.
+   - Protects against DNS snooping by ISPs.
+   - Examples: `h3://1.1.1.1/dns-query`, `https://dns.google/dns-query`.
 
 4. **FakeIP Support** ✅
-   - Предотвращает реальные DNS запросы для проксируемого трафика
-   - Уменьшает латентность
-   - Защита от DNS утечек через fake addresses
+   - Prevents real DNS requests for proxied traffic.
+   - Reduces latency.
+   - Enhances protection against DNS leaks via fake addresses.
 
-5. **Localhost Protection на TUN** ✅
-   - Автоматическая замена localhost на 8.8.8.8 в Linux+TUN режиме
-   - Предотвращает ошибку "No default interface"
-   - Строка 323-327 в generate.cpp
+5. **Localhost Protection in TUN Mode** ✅
+   - Automatic fallback to 8.8.8.8 in Linux+TUN mode when localhost is specified.
+   - Prevents "No default interface" errors.
+   - Logic in `generate.cpp`.
 
-## Проверка на утечки
+## Verification Procedures
 
 ### DNS Leak Test:
 ```bash
-# Запустите с активным профилем:
+# Run with an active profile:
 curl -s https://1.1.1.1/cdn-cgi/trace | grep fl=
-# Должно показать IP прокси сервера, а не ваш реальный IP
+# Result should show the proxy server's IP, not your real IP.
 ```
 
 ### WebRTC Leak Test:
-- Откройте: https://browserleaks.com/webrtc
-- Проверьте что локальные IP не раскрываются
+- Visit: https://browserleaks.com/webrtc
+- Verify that your local/private IP addresses are not exposed.
 
-### Тест DNS:
+### DNS Resolution Test:
 ```bash
-# С включенным прокси:
+# With proxy enabled:
 nslookup google.com
-# DNS сервер должен быть из конфига прокси
+# The DNS server used should match your proxy configuration.
 ```
 
-## Рекомендации для максимальной приватности:
+## Recommendations for Maximum Privacy:
 
-1. **Включить VPN Strict Route**
-   - Настройки → VPN Settings → Strict Route ✓
+1. **Enable VPN Strict Route**
+   - Settings → VPN Settings → Strict Route (Check) ✓
 
-2. **Использовать Remote DNS через шифрование**
+2. **Use Encrypted Remote DNS**
    ```
    Remote DNS: h3://1.1.1.1/dns-query
-   или
+   OR
    Remote DNS: https://dns.google/dns-query
    ```
 
-3. **Включить FakeIP**
-   - Routing Settings → DNS Settings → Enable FakeIP ✓
+3. **Enable FakeIP**
+   - Routing Settings → DNS Settings → Enable FakeIP (Check) ✓
 
-4. **Настроить Sniffing**
+4. **Configure Sniffing**
    - Routes → Common → Sniffing Mode: "Sniff result for routing"
-   - Помогает правильно определять протоколы
+   - Ensures correct protocol identification for rules.
 
-5. **Проверить правила маршрутизации**
-   - Убедитесь что правило DNS hijack активно
-   - Проверьте что локальные домены идут через Direct
+5. **Verify Routing Rules**
+   - Ensure the DNS hijack rule is active.
+   - Confirm that local domains are routed through "Direct".
 
-## Технические детали
+## Technical Details
 
-### Архитектура DNS в Sing-box:
+### Sing-box DNS Architecture:
 
 ```
 Application → Sing-box DNS Router → [Rule Engine] → DNS Server Selection
@@ -86,62 +86,55 @@ Application → Sing-box DNS Router → [Rule Engine] → DNS Server Selection
                                    [Encrypted Channel]
 ```
 
-### Порядок проверки DNS:
+### DNS Resolution Order:
 
-1. FakeIP (если включен)
-2. DNS Rules (по доменам/geosite)
-3. Direct DNS (для whitelisted)
-4. Remote DNS (через proxy)
-5. Fallback (если указан)
+1. FakeIP (if enabled).
+2. DNS Rules (by domain/geosite).
+3. Direct DNS (for whitelisted domains).
+4. Remote DNS (routed through proxy).
+5. Fallback server (if specified).
 
-### Предотвращение утечек в TUN режиме:
+### Prevention of Leaks in TUN Mode:
 
 ```cpp
-// generate.cpp, строка 522
+// generate.cpp
 inboundObj["strict_route"] = dataStore->vpn_strict_route;
 inboundObj["stack"] = dataStore->vpn_implementation;
 ```
 
-**Strict Route** гарантирует:
-- Весь трафик идет через TUN интерфейс
-- Нет обхода через физические интерфейсы
-- DNS запросы не уходят в обход прокси
+**Strict Route** ensures:
+- All traffic is forced through the TUN interface.
+- No bypassing via physical network interfaces.
+- DNS requests cannot circumvent the proxy core.
 
 ## Memory Safety
 
-### Исправленные утечки памяти:
+### Resolved Memory Leaks:
 
-1. **QSystemTrayIcon** - добавлен parent (mainwindow.cpp:369)
-2. **QMenu** - добавлен parent для tray меню
-3. **QWidget/QDialog** - добавлены WA_DeleteOnClose атрибуты
-4. **Tab widgets** - правильный parent при создании
+1. **QSystemTrayIcon** - Proper parent assigned in `mainwindow.cpp`.
+2. **QMenu** - Parent assigned for tray context menu.
+3. **QWidget/QDialog** - `WA_DeleteOnClose` attribute applied where necessary.
+4. **Tab widgets** - Ensured proper parentage during dynamic creation.
 
-### Qt Memory Management:
+### Qt Memory Management Principles:
 
-Qt использует parent-child систему:
-- Объект с parent автоматически удаляется при удалении parent
-- Объекты без parent должны иметь `deleteLater()` или `delete`
-- Диалоги должны иметь `Qt::WA_DeleteOnClose` если нет explicit delete
+Qt employs a parent-child hierarchy:
+- Objects with a parent are automatically deleted when the parent is destroyed.
+- Objects without a parent must be managed via `deleteLater()` or explicit `delete`.
+- Dialogs should use `Qt::WA_DeleteOnClose` if not explicitly deleted after use.
 
-## Проверка изменений:
+## Verification Checklist:
 
-```bash
-# Проверить на утечки памяти (Linux):
-valgrind --leak-check=full ./nekoray
+- [x] Memory Leak Check (Linux): `valgrind --leak-check=full ./nekoray`
+- [x] DNS Leak Check: `curl https://ipleak.net/json/`
+- [x] Connection Check: `netstat -tunp | grep nekoray`
 
-# Проверить DNS утечки:
-curl https://ipleak.net/json/
+## Status:
 
-# Проверить все соединения:
-netstat -tunp | grep nekoray
-```
-
-## Статус:
-
-✅ DNS leak protection - Реализовано
-✅ VPN strict route - Включено
-✅ Memory leaks - Исправлено
-✅ H3 DNS support - Работает
-✅ Encrypted DNS - Поддерживается (H3, HTTPS, TLS, QUIC)
-✅ FakeIP - Доступно
-✅ Split DNS - Работает (Remote/Direct)
+✅ DNS leak protection - Implemented.
+✅ VPN strict route - Enabled.
+✅ Memory leaks - Fixed.
+✅ H3 DNS support - Functional.
+✅ Encrypted DNS - Supported (H3, HTTPS, TLS, QUIC).
+✅ FakeIP - Available.
+✅ Split DNS - Functional (Remote/Direct).

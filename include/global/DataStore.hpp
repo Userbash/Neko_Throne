@@ -144,6 +144,8 @@ namespace Configs {
         QString custom_route_global = "{\"rules\": []}";
         QString active_routing = "Default";
         bool adblock_enable = false;
+        bool torrent_block_enable = true;
+        int torrent_action = 0; // 0=block, 1=direct, 2=proxy
 
         // VPN
         bool fake_dns = false;

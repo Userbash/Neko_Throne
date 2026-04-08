@@ -53,6 +53,9 @@ signals:
     // Emitted if the core binary cannot be found or fails to execute.
     void parseError(const QString &errorMessage);
 
+    // Emitted if gRPC calls to the running core fail multiple times.
+    void heartbeatFailed();
+
 private:
     explicit CoreVersionParser(QObject *parent = nullptr);
     ~CoreVersionParser() override = default;

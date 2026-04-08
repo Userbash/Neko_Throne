@@ -3,6 +3,7 @@
 // src/api/CoreVersionParser.cpp — Implementation
 // ═══════════════════════════════════════════════════════════════════════════════
 #include "include/api/CoreVersionParser.hpp"
+#include "include/api/RPC.h"
 #include "include/global/Configs.hpp"
 
 #include <QMutex>
@@ -11,7 +12,9 @@
 #include <QRegularExpression>
 #include <QThreadPool>
 #include <QTimer>
+#include <QPointer>
 #include <QtConcurrent>
+#include "3rdparty/qscopeguard.h"
 
 // ─── Private implementation ──────────────────────────────────────────────────
 /**
@@ -23,6 +26,8 @@ public:
     mutable QMutex mutex;      ///< Guards access to cached data
     CoreVersionInfo cached;    ///< Last successfully parsed version information
     QTimer *periodicTimer = nullptr; ///< Timer for background polling
+    int gRPCFailCount = 0;     ///< Tracker for consecutive gRPC failures
+    std::atomic<bool> isRunning{false}; ///< Flag to prevent concurrent checks
 };
 
 // ─── Singleton ───────────────────────────────────────────────────────────────
@@ -46,15 +51,28 @@ CoreVersionInfo CoreVersionParser::cachedInfo() const {
  * Emits versionParsed() on the main thread when finished.
  */
 void CoreVersionParser::requestVersions() {
-    (void) QtConcurrent::run([this] {
+    // Prevent overlapping checks
+    if (d->isRunning.exchange(true)) {
+        return;
+    }
+
+    QPointer<CoreVersionParser> safeThis(this);
+
+    (void) QtConcurrent::run([this, safeThis] {
         CoreVersionInfo info;
+
+        auto cleanup = qScopeGuard([this] {
+            d->isRunning.store(false);
+        });
 
         // Resolve absolute path to the core binary (NekoCore)
         auto corePath = Configs::FindCoreRealPath();
         if (corePath.isEmpty()) {
-            QMetaObject::invokeMethod(this, [this] {
-                emit parseError(QStringLiteral("Core binary not found on disk"));
-            });
+            if (safeThis) {
+                QMetaObject::invokeMethod(safeThis, [this] {
+                    emit parseError(QStringLiteral("Core binary not found on disk"));
+                });
+            }
             return;
         }
 
@@ -69,20 +87,20 @@ void CoreVersionParser::requestVersions() {
             if (proc.waitForFinished(5000)) {
                 auto output = QString::fromUtf8(proc.readAllStandardOutput());
                 
-                // 1. Regex for sing-box (Matches: "sing-box: v1.13.2" or "sing-box version 1.13.2")
+                // 1. Regex for sing-box (Matches: "sing-box: v1.13.2" or "sing-box version 1.13.2" or "v1.13.2")
                 static const QRegularExpression rxSingbox(
-                    QStringLiteral(R"(sing-box[:\s]+(?:version\s+)?([\d.]+(?:-\w+)?))")
+                    QStringLiteral(R"((?:sing-box[:\s]+)?(?:version\s+)?v?([\d.]+(?:-\w+)?))")
                 );
                 auto m = rxSingbox.match(output);
                 if (m.hasMatch()) {
                     info.singboxVersion = m.captured(1);
                     info.singboxAvailable = true;
-                    info.singboxStatus = QStringLiteral("stopped"); // Process not running, but binary OK
+                    info.singboxStatus = QStringLiteral("stopped");
                 }
 
-                // 2. Regex for Xray (Matches: "Xray-core: 1.25.1" or "Xray 1.25.1")
+                // 2. Regex for Xray (Matches: "Xray-core: 1.25.1" or "Xray 1.25.1" or "1.25.1")
                 static const QRegularExpression rxXray(
-                    QStringLiteral(R"(Xray(?:-core)?[:\s]+([\d.]+))")
+                    QStringLiteral(R"((?:Xray(?:-core)?[:\s]+)?v?([\d.]+))")
                 );
                 auto mx = rxXray.match(output);
                 if (mx.hasMatch()) {
@@ -93,6 +111,7 @@ void CoreVersionParser::requestVersions() {
             } else {
                 info.singboxStatus = QStringLiteral("error");
                 info.xrayStatus = QStringLiteral("error");
+                MW_show_log(QString("[CoreManager] Version check timed out for %1").arg(corePath));
             }
         }
 
@@ -103,6 +122,28 @@ void CoreVersionParser::requestVersions() {
                 info.singboxStatus = QStringLiteral("running");
             if (info.xrayAvailable)
                 info.xrayStatus = QStringLiteral("running");
+
+            // ── gRPC Heartbeat Check ─────────────────────────────────────
+            // Perform a lightweight gRPC call to ensure the core is responsive.
+            bool rpcOk = false;
+            if (API::defaultClient) {
+                API::defaultClient->IsPrivileged(&rpcOk);
+            }
+
+            if (!rpcOk) {
+                if (++d->gRPCFailCount >= 3) {
+                    MW_show_log(QStringLiteral("[Fatal] gRPC heartbeat failed 3 times. Core might be stuck."));
+                    if (safeThis) {
+                        QMetaObject::invokeMethod(safeThis, [this] {
+                            emit heartbeatFailed();
+                        });
+                    }
+                }
+            } else {
+                d->gRPCFailCount = 0; // reset on success
+            }
+        } else {
+            d->gRPCFailCount = 0; // core not running, no heartbeat needed
         }
 
         // ── Update Cache & Notify GUI ────────────────────────────────────
@@ -112,9 +153,11 @@ void CoreVersionParser::requestVersions() {
         }
 
         // Emit signal on main thread for UI consumption
-        QMetaObject::invokeMethod(this, [this, info] {
-            emit versionParsed(info);
-        });
+        if (safeThis) {
+            QMetaObject::invokeMethod(safeThis, [this, info] {
+                emit versionParsed(info);
+            });
+        }
     });
 }
 

@@ -35,7 +35,7 @@ echo "[1/4] Copying core artifacts..."
 cp "$BUILD/Neko_Throne" "$DEST/"
 
 # Copy Core backend (if exists)
-if [ -f "deployment/linux-$ARCH/NekoCore" ]; then
+if [ -f "$DEST/NekoCore" ]; then echo "Core already in place"; elif [ -f "deployment/linux-$ARCH/NekoCore" ]; then
     cp "deployment/linux-$ARCH/NekoCore" "$DEST/"
 elif [ -f "$BUILD/NekoCore" ]; then
     cp "$BUILD/NekoCore" "$DEST/"

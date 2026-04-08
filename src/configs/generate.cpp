@@ -837,6 +837,56 @@ namespace Configs {
                     };
         }
 
+        // BitTorrent protection
+        if (dataStore->torrent_block_enable) {
+            QString torrentActionStr = "reject"; // Default: Block (Reject)
+            QString torrentOutbound = "block";  // Block outbound
+            if (dataStore->torrent_action == 1) {
+                torrentActionStr = "route";
+                torrentOutbound = "direct";
+            } else if (dataStore->torrent_action == 2) {
+                torrentActionStr = "route";
+                torrentOutbound = "proxy";
+            }
+
+            // 1. BitTorrent Protocol Detection (DPI)
+            routeRules.prepend(QJsonObject{
+                {"protocol", QJsonArray{"bittorrent"}},
+                {"action", torrentActionStr},
+                {"outbound", torrentOutbound}
+            });
+
+            // 2. Port-based (TCP/UDP 6881-6889, 51413)
+            routeRules.prepend(QJsonObject{
+                {"port", QJsonArray{6881, 6882, 6883, 6884, 6885, 6886, 6887, 6888, 6889, 51413}},
+                {"action", torrentActionStr},
+                {"outbound", torrentOutbound}
+            });
+
+            // 3. Process-based (if process scanning is enabled)
+            if (dataStore->enable_stats) {
+                QJsonArray processes;
+                processes.append("qbittorrent"); processes.append("qbittorrent.exe");
+                processes.append("utorrent"); processes.append("utorrent.exe"); processes.append("uTorrent.exe");
+                processes.append("transmission"); processes.append("transmission-gtk"); processes.append("transmission-qt");
+                processes.append("deluge"); processes.append("deluge.exe"); processes.append("deluged");
+                processes.append("rtorrent"); processes.append("tixati"); processes.append("tixati.exe");
+                processes.append("bitcomet"); processes.append("BitComet.exe");
+                processes.append("bittorrent"); processes.append("bittorrent.exe");
+                processes.append("vuze"); processes.append("Azureus.exe");
+                processes.append("aria2c"); processes.append("aria2c.exe");
+                processes.append("webtorrent"); processes.append("WebTorrent.exe");
+                processes.append("PicoTorrent.exe"); processes.append("BiglyBT.exe");
+                processes.append("fdm.exe"); processes.append("Tribler.exe");
+
+                routeRules.prepend(QJsonObject{
+                    {"process_name", processes},
+                    {"action", torrentActionStr},
+                    {"outbound", torrentOutbound}
+                });
+            }
+        }
+
         // apply
         QJsonObject route;
         route["rules"] = routeRules;

@@ -281,15 +281,19 @@ void HideWindow(QWidget *w) {
 }
 
 void runOnUiThread(const std::function<void()> &callback, bool wait) {
-    // any thread
+    // Use qApp->thread() as it's the most reliable way to reach the main thread
+    auto *app = qApp;
+    if (!app) return;
+    auto thread = app->thread();
+    
     auto *timer = new QTimer();
-    auto thread = mainwindow->thread();
     timer->moveToThread(thread);
     timer->setSingleShot(true);
 
     QEventLoop loop;
-    QObject::connect(timer, &QTimer::timeout, [=, &loop]() {
-        // main thread
+    auto connection = std::make_shared<QMetaObject::Connection>();
+    *connection = QObject::connect(timer, &QTimer::timeout, app, [=, &loop]() {
+        // main thread execution
         callback();
         timer->deleteLater();
 
@@ -344,7 +348,7 @@ void runOnThread(const std::function<void()> &callback, QObject *parent, bool wa
     timer->setSingleShot(true);
 
     QEventLoop loop;
-    QObject::connect(timer, &QTimer::timeout, [=, &loop]() {
+    QObject::connect(timer, &QTimer::timeout, parent, [=, &loop]() {
         callback();
         timer->deleteLater();
 

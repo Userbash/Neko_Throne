@@ -1,25 +1,25 @@
 # BitTorrent Traffic Protection
 
-**Дата:** 2026-03-10  
-**Проект:** Neko_Throne  
-**Версия:** 1.0
+**Date:** 2026-03-10  
+**Project:** Neko_Throne  
+**Version:** 1.0
 
 ---
 
-## Обзор
+## Overview
 
-Neko_Throne включает комплексную систему защиты от торрент-трафика для предотвращения злоупотреблений прокси-серверами и защиты от жалоб (abuse complaints).
+Neko_Throne includes a comprehensive BitTorrent traffic protection system to prevent proxy abuse and protect against abuse complaints.
 
-### Зачем это нужно?
+### Why is this necessary?
 
-1. **Защита прокси-серверов** - торрент-трафик создает огромную нагрузку и может привести к блокировке IP
-2. **Предотвращение DMCA жалоб** - загрузка защищенного авторских прав контента через прокси может привести к жалобам
-3. **Экономия трафика** - P2P протоколы потребляют большой объем данных
-4. **Производительность** - торренты создают множество одновременных соединений, перегружая ядро прокси
+1. **Proxy Server Protection** - Torrent traffic creates significant load and can lead to IP blacklisting.
+2. **DMCA Complaint Prevention** - Downloading copyrighted content through a proxy can result in legal notices.
+3. **Bandwidth Conservation** - P2P protocols consume large volumes of data.
+4. **Performance** - Torrents create numerous simultaneous connections, potentially overloading the proxy core.
 
 ---
 
-## Механизмы обнаружения
+## Detection Mechanisms
 
 ### 1. Protocol Detection (DPI - Deep Packet Inspection)
 ```json
@@ -29,9 +29,9 @@ Neko_Throne включает комплексную систему защиты 
   "outbound": "block"
 }
 ```
-- ✅ Обнаруживает BitTorrent рукопожатия
-- ✅ Требует sniffing включенным
-- ✅ Работает для шифрованных торрентов с правильными заголовками
+- ✅ Identifies BitTorrent handshakes.
+- ✅ Requires sniffing to be enabled.
+- ✅ Works for encrypted torrents with valid headers.
 
 ### 2. Port-Based Detection
 ```json
@@ -42,9 +42,9 @@ Neko_Throne включает комплексную систему защиты 
   "outbound": "block"
 }
 ```
-- ✅ Блокирует стандартные торрент-порты
-- ✅ Ловит uTP (UDP-based torrents)
-- ✅ Ловит DHT (Distributed Hash Table)
+- ✅ Blocks standard torrent ports.
+- ✅ Catches uTP (UDP-based torrents).
+- ✅ Catches DHT (Distributed Hash Table) traffic.
 
 ### 3. Process-Based Detection
 ```json
@@ -57,64 +57,64 @@ Neko_Throne включает комплексную систему защиты 
   "outbound": "block"
 }
 ```
-- ✅ Самый надежный метод
-- ✅ Работает на Windows/Linux (требует права администратора)
-- ✅ Блокирует все популярные торрент-клиенты
+- ✅ Most reliable method.
+- ✅ Works on Windows/Linux (requires administrative privileges).
+- ✅ Blocks all popular torrent clients.
 
 ---
 
-## Режимы работы
+## Operational Modes
 
-### Block (Рекомендуется) ⛔
+### Block (Recommended) ⛔
 ```
 torrent_block_enable = true
 torrent_action = 0
 ```
-- Полностью блокирует весь торрент-трафик
-- **Преимущества**: Максимальная защита от abuse
-- **Недостатки**: Пользователи не смогут использовать торренты вообще
+- Completely blocks all torrent traffic.
+- **Advantages**: Maximum protection against abuse.
+- **Disadvantages**: Users cannot use torrents at all.
 
 ### Direct 🔄
 ```
 torrent_block_enable = true
 torrent_action = 1
 ```
-- Направляет торрент-трафик напрямую (не через прокси)
-- **Преимущества**: Пользователи могут торрентить через свой реальный IP
-- **Недостатки**: Может раскрыть реальный IP пользователя
+- Routes torrent traffic directly (bypassing the proxy).
+- **Advantages**: Users can torrent via their real IP.
+- **Disadvantages**: May expose the user's real IP address.
 
-### Proxy (Не рекомендуется) ⚠️
+### Proxy (Not Recommended) ⚠️
 ```
 torrent_block_enable = true
 torrent_action = 2
 ```
-- Разрешает торрент-трафик через прокси
-- **Преимущества**: Полная анонимность пользователя
-- **Недостатки**: Риск DMCA жалоб, перегрузка прокси, возможная блокировка IP
+- Allows torrent traffic through the proxy.
+- **Advantages**: Full user anonymity.
+- **Disadvantages**: Risk of DMCA complaints, proxy overload, and potential IP blocking.
 
 ---
 
-## UI Настройка
+## UI Configuration
 
-### Через меню "Routing"
+### Via "Routing" Menu
 
-1. **Откройте меню Routing** (правый верхний угол)
-2. **Найдите "BitTorrent Traffic Control"**
-3. **Опции:**
-   - ✅ **Enable Protection** - включить/выключить защиту
-   - 🔴 **Block (Recommended)** - блокировать весь трафик
-   - 🟡 **Route Direct** - напрямую (bypass proxy)
-   - ⚠️ **Route via Proxy** - через прокси (опасно)
+1. **Open Routing Menu** (top right corner).
+2. **Locate "BitTorrent Traffic Control"**.
+3. **Options:**
+   - ✅ **Enable Protection** - Toggle protection on/off.
+   - 🔴 **Block (Recommended)** - Block all traffic.
+   - 🟡 **Route Direct** - Direct connection (bypass proxy).
+   - ⚠️ **Route via Proxy** - Through proxy (high risk).
 
-### Автоматический рестарт
+### Automatic Restart
 
-При изменении настроек приложение автоматически перезапустит прокси для применения новых правил.
+When settings are changed, the application will automatically restart the proxy to apply the new rules.
 
 ---
 
-## Технические детали
+## Technical Details
 
-### Обнаруживаемые клиенты
+### Detected Clients
 
 **Windows:**
 - qBittorrent.exe
@@ -137,22 +137,22 @@ torrent_action = 2
 - webtorrent
 
 **Cross-platform:**
-- aria2c (универсальный загрузчик с поддержкой BitTorrent)
+- aria2c (universal downloader with BitTorrent support)
 
-### Порты
+### Ports
 
-| Протокол | Порты | Описание |
+| Protocol | Ports | Description |
 |----------|-------|----------|
-| BitTorrent TCP | 6881-6889 | Классические торрент-порты |
+| BitTorrent TCP | 6881-6889 | Classic torrent ports |
 | BitTorrent TCP | 51413 | Transmission default port |
 | uTP (UDP) | 6881-6889 | UDP-based micro transport |
 | DHT (UDP) | 6881 | Distributed Hash Table |
 
 ---
 
-## Примеры конфигурации
+## Configuration Examples
 
-### Полная блокировка
+### Full Blocking
 ```json
 {
   "route": {
@@ -184,7 +184,7 @@ torrent_action = 2
 }
 ```
 
-### Direct routing (bypass)
+### Direct Routing (Bypass)
 ```json
 {
   "route": {
@@ -201,26 +201,26 @@ torrent_action = 2
 
 ---
 
-## Тестирование
+## Testing
 
-### Проверка защиты
+### Verifying Protection
 
-1. **Включите защиту** в режиме Block
-2. **Запустите торрент-клиент** (qBittorrent, Transmission)
-3. **Попытайтесь загрузить торрент**
-4. **Ожидаемый результат**: Соединения не устанавливаются, трафика нет
+1. **Enable protection** in Block mode.
+2. **Launch a torrent client** (e.g., qBittorrent, Transmission).
+3. **Attempt to download a torrent**.
+4. **Expected Result**: Connections fail to establish, no traffic is generated.
 
-### Проверка sniffing
+### Verifying Sniffing
 
 ```bash
-# Проверьте, что sniffing включен в настройках маршрутизации
+# Ensure sniffing is enabled in routing settings
 # Routing Settings -> Sniffing Mode -> For Routing
 ```
 
-### Проверка логов
+### Checking Logs
 
 ```bash
-# В терминальных логах должны быть сообщения:
+# Terminal logs should contain messages like:
 [ROUTE] Reject bittorrent connection
 [ROUTE] Process qbittorrent blocked
 ```
@@ -229,94 +229,94 @@ torrent_action = 2
 
 ## FAQ
 
-### Q: Почему торренты все еще работают?
+### Q: Why are torrents still working?
 
-**A:** Возможные причины:
-1. Sniffing отключен - включите в Routing Settings
-2. Приложение не перезапустилось после изменения настроек
-3. Торрент-клиент использует нестандартные порты
-4. Торрент-трафик шифрован и не детектируется
+**A:** Possible reasons:
+1. Sniffing is disabled - enable it in Routing Settings.
+2. Application did not restart after setting change.
+3. Torrent client uses non-standard ports.
+4. Torrent traffic is encrypted and not detected by DPI.
 
-**Решение:**
-- Используйте режим Process-based (самый надежный)
-- Убедитесь что приложение запущено с правами администратора (для process detection)
+**Solution:**
+- Use Process-based mode (most reliable).
+- Ensure the application is running with administrative privileges (for process detection).
 
-### Q: Можно ли разрешить определенные торренты?
+### Q: Can I allow specific torrents?
 
-**A:** Нет, текущая реализация блокирует/роутит весь торрент-трафик глобально. Для выборочного разрешения используйте режим "Direct" и создайте custom routing rules.
+**A:** No, the current implementation blocks or routes all torrent traffic globally. For selective allowance, use "Direct" mode and create custom routing rules.
 
-### Q: Влияет ли это на легальные P2P приложения?
+### Q: Does this affect legal P2P applications?
 
-**A:** Да, защита может блокировать:
+**A:** Yes, protection may block:
 - Popcorn Time
 - BitTorrent-based streaming
-- P2P video conferencing (некоторые)
-- IPFS (если использует DHT на стандартных портах)
+- Certain P2P video conferencing apps
+- IPFS (if using DHT on standard ports)
 
-**Решение:** Используйте режим "Direct" или отключите защиту временно
+**Solution:** Use "Direct" mode or temporarily disable protection.
 
-### Q: Работает ли на macOS?
+### Q: Does it work on macOS?
 
-**A:** Частично. Process detection может работать некорректно на macOS из-за ограничений sandboxing. Рекомендуется использовать protocol и port-based detection.
-
----
-
-## Безопасность
-
-### Обход защиты
-
-**Потенциальные способы обхода:**
-1. **Использование нестандартных портов** - process detection решает
-2. **Полное шифрование** - process detection решает
-3. **Прокси-цепочки** - можно обнаружить только по процессу
-4. **VPN внутри прокси** - невозможно обнаружить
-
-**Рекомендации:**
-- Всегда используйте режим "Block" для публичных прокси
-- Включайте sniffing для максимальной защиты
-- Запускайте приложение с правами администратора для process detection
+**A:** Partially. Process detection may not work correctly on macOS due to sandboxing restrictions. Protocol and port-based detection are recommended.
 
 ---
 
-## Производительность
+## Security
 
-### Влияние на performance
+### Bypassing Protection
 
-| Метод | CPU Usage | Memory | Latency |
+**Potential bypass methods:**
+1. **Non-standard ports** - resolved by process detection.
+2. **Full encryption** - resolved by process detection.
+3. **Proxy chaining** - can only be detected via process tracking.
+4. **VPN inside proxy** - impossible to detect.
+
+**Recommendations:**
+- Always use "Block" mode for public proxies.
+- Enable sniffing for maximum protection.
+- Run the application with administrative privileges for process detection.
+
+---
+
+## Performance
+
+### Performance Impact
+
+| Method | CPU Usage | Memory | Latency |
 |-------|-----------|--------|---------|
 | Protocol (DPI) | +2-5% | +10MB | +1-3ms |
 | Port-based | +0.1% | +1MB | +0.1ms |
 | Process-based | +1-2% | +5MB | +0.5ms |
 
-**Вывод:** Минимальное влияние на производительность даже при всех методах одновременно.
+**Conclusion:** Minimal performance impact even when using all methods simultaneously.
 
 ---
 
 ## Roadmap
 
-### Планируемые улучшения
+### Planned Improvements
 
-- [ ] Whitelist для разрешенных процессов
-- [ ] Статистика заблокированного торрент-трафика
-- [ ] Интеграция с rule-sets для DHT узлов
-- [ ] Поддержка custom port ranges
-- [ ] Режим "Log only" для мониторинга без блокировки
-
----
-
-## Поддержка
-
-Если обнаружите обход защиты или false-positives, пожалуйста, создайте issue на GitHub с:
-- Версией Neko_Throne
-- Используемым торрент-клиентом
-- Логами приложения (без чувствительных данных)
+- [ ] Whitelist for authorized processes.
+- [ ] Blocked torrent traffic statistics.
+- [ ] Integration with rule-sets for DHT nodes.
+- [ ] Support for custom port ranges.
+- [ ] "Log only" mode for monitoring without blocking.
 
 ---
 
-## Лицензия
+## Support
 
-Эта функция является частью Neko_Throne и распространяется под GPLv3 License.
+If you discover a bypass or encounter false-positives, please create a GitHub issue including:
+- Neko_Throne version.
+- Torrent client used.
+- Application logs (excluding sensitive data).
 
 ---
 
-*Документация обновлена: 2026-03-10*
+## License
+
+This feature is part of Neko_Throne and is distributed under the GPLv3 License.
+
+---
+
+*Documentation updated: 2026-03-10*

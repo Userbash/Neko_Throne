@@ -112,13 +112,19 @@ return
 }
 }
 
-boxInstance, instanceCancel, err = boxmain.Create([]byte(*in.CoreConfig))
-if err != nil {
-if extraProcess != nil {
-extraProcess.Stop()
-extraProcess = nil
+if in == nil || in.CoreConfig == nil {
+	err = errors.New("empty core config")
+	return
 }
-if xrayInstance != nil {
+
+boxInstance, instanceCancel, err = boxmain.Create([]byte(*in.CoreConfig), in.GetDisableDnsRouting())
+if err != nil {
+	log.Printf("[Core] Failed to create instance: %v", err)
+	if extraProcess != nil {
+		extraProcess.Stop()
+		extraProcess = nil
+	} 
+ if xrayInstance != nil {
 xrayInstance.Close()
 xrayInstance = nil
 }
@@ -241,7 +247,7 @@ defer func() {
 common.Must(xrayTestIntance.Close())
 }() // crash in case it does not close properly
 }
-testInstance, cancel, err = boxmain.Create([]byte(*in.Config))
+testInstance, cancel, err = boxmain.Create([]byte(*in.Config), false)
 if err != nil {
 return nil, err
 }
@@ -371,6 +377,8 @@ Dest:      To(c.Metadata.Destination.String()),
 Protocol:  To(c.Metadata.Protocol),
 Domain:    To(c.Metadata.Domain),
 Process:   To(process),
+WifiSsid:  To(""),
+WifiBssid: To(""),
 }
 res = append(res, r)
 }
@@ -416,7 +424,7 @@ return nil, err
 }
 defer xrayTestIntance.Close()
 }
-testInstance, cancel, err = boxmain.Create([]byte(*in.Config))
+testInstance, cancel, err = boxmain.Create([]byte(*in.Config), false)
 if err != nil {
 return nil, err
 }
@@ -513,7 +521,7 @@ defer func() {
 common.Must(xrayTestInstance.Close())
 }()
 }
-testInstance, cancel, err = boxmain.Create([]byte(*in.Config))
+testInstance, cancel, err = boxmain.Create([]byte(*in.Config), false)
 if err != nil {
 return nil, err
 }

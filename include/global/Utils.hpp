@@ -19,8 +19,42 @@ inline QString software_core_name;
 // MainWindow functions
 class QWidget;
 inline QWidget *mainwindow;
-inline std::function<void(QString)> MW_show_log;
-inline std::function<void(QString, QString)> MW_dialog_message;
+
+#include <QPointer>
+
+template<typename... Args>
+class SafeUIFunction {
+public:
+    using Func = std::function<void(Args...)>;
+    
+    void operator()(Args... args) const { 
+        if (guard && f) {
+            f(args...); 
+        }
+    }
+    
+    SafeUIFunction& assign(QObject* ctx, Func newFunc) { 
+        guard = ctx;
+        f = std::move(newFunc); 
+        return *this; 
+    }
+    
+    SafeUIFunction& operator=(std::nullptr_t) { 
+        f = nullptr; 
+        guard = nullptr;
+        return *this; 
+    }
+    
+    explicit operator bool() const { 
+        return static_cast<bool>(f) && !guard.isNull(); 
+    }
+private:
+    Func f;
+    QPointer<QObject> guard;
+};
+
+inline SafeUIFunction<QString> MW_show_log;
+inline SafeUIFunction<QString, QString> MW_dialog_message;
 
 // Dispatchers
 
