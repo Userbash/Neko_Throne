@@ -20,6 +20,15 @@ PlatformTray::~PlatformTray() {
 }
 
 void PlatformTray::setupPlatformBackend() {
+    static bool is_headless = QGuiApplication::platformName().contains("offscreen") || 
+                              QGuiApplication::platformName().contains("minimal");
+    
+    if (is_headless) {
+        m_trayIcon = nullptr;
+        qDebug() << "PlatformTray: Headless mode detected, tray disabled.";
+        return;
+    }
+
 #ifdef Q_OS_LINUX
     // Prefer StatusNotifierItem on Wayland (QSystemTrayIcon is unreliable).
     // Qt 6 on Wayland auto-uses SNI if libdbusmenu-qt is available and the
@@ -33,8 +42,6 @@ void PlatformTray::setupPlatformBackend() {
                                session);
         m_useSNI = watcher.isValid();
     }
-    // Whether SNI is used or not, QSystemTrayIcon on Qt 6.5+ handles it internally
-    // if compiled with D-Bus support. We always create one.
 #endif
 
     m_trayIcon = new QSystemTrayIcon(this);
@@ -90,5 +97,6 @@ void PlatformTray::showMessage(const QString &title, const QString &message,
 }
 
 bool PlatformTray::isAvailable() const {
+    if (!m_trayIcon) return false;
     return QSystemTrayIcon::isSystemTrayAvailable();
 }

@@ -227,6 +227,10 @@ LeakAuditResult NetworkLeakGuard::auditIPv6() {
 // ─── IPv6 block/restore (call when VPN activates/deactivates) ────────────────
 void NetworkLeakGuard::blockIPv6Leaks() {
 #ifdef Q_OS_LINUX
+    if (!Configs::IsAdmin()) {
+        qDebug() << "NetworkLeakGuard: blockIPv6Leaks skipped — not running as root";
+        return;
+    }
     QProcess::execute(QStringLiteral("sysctl"),
         {QStringLiteral("-w"), QStringLiteral("net.ipv6.conf.all.disable_ipv6=1")});
     QProcess::execute(QStringLiteral("sysctl"),
@@ -252,6 +256,10 @@ void NetworkLeakGuard::blockIPv6Leaks() {
 
 void NetworkLeakGuard::restoreIPv6() {
 #ifdef Q_OS_LINUX
+    if (!Configs::IsAdmin()) {
+        qDebug() << "NetworkLeakGuard: restoreIPv6 skipped — not running as root";
+        return;
+    }
     QProcess::execute(QStringLiteral("sysctl"),
         {QStringLiteral("-w"), QStringLiteral("net.ipv6.conf.all.disable_ipv6=0")});
     QProcess::execute(QStringLiteral("sysctl"),

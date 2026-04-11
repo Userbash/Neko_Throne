@@ -420,6 +420,27 @@ namespace Configs {
 #ifdef Q_OS_WIN
         fn += ".exe";
 #endif
+#ifdef Q_OS_LINUX
+        // Prefer a privileged install at /usr/local/bin/NekoCore if it exists,
+        // is executable, and is NOT on a nosuid mount. This is the landing
+        // spot used by get_elevated_permissions() on filesystems (Fedora
+        // Silverblue /var/home, etc.) where file capabilities are stripped at
+        // exec time. If anything about the installed copy looks off, we fall
+        // through to the bundled binary.
+        {
+            const QString installed = QStringLiteral("/usr/local/bin/NekoCore");
+            QFileInfo ii(installed);
+            if (ii.exists() && ii.isExecutable() && !Linux_IsPathNosuid(installed)) {
+                // Make sure the installed copy is at least as new as the one
+                // shipped next to the UI; otherwise users who upgrade the app
+                // would silently keep running the old core.
+                QFileInfo bundled(fn);
+                if (!bundled.exists() || ii.lastModified() >= bundled.lastModified()) {
+                    return installed;
+                }
+            }
+        }
+#endif
         auto fi = QFileInfo(fn);
         // Only use the symlink target when the file actually is a symlink;
         // otherwise fall back to the canonical path.

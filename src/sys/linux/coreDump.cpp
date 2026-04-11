@@ -33,7 +33,12 @@ static void posix_crash_handler(int sig) {
     backtrace_symbols_fd(array, size, STDERR_FILENO);
     fprintf(stderr, "----------------------------------\n");
 
-    _exit(1); // Use _exit to avoid cleanup handlers that might crash again
+    if (getenv("THRONE_ALLOW_CORE_DUMP")) {
+        signal(sig, SIG_DFL);
+        raise(sig);
+    } else {
+        _exit(1);
+    }
 }
 
 void setup_crash_handlers() {

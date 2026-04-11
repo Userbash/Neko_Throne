@@ -69,11 +69,17 @@ func RunCore() {
 func main() {
 	defer func() {
 		if err := recover(); err != nil {
-			fmt.Println("Core panicked:")
-			fmt.Println(err)
-			os.Exit(0)
+			fmt.Fprintf(os.Stderr, "Core panicked: %v\n", err)
+			runtimeDebug.PrintStack()
+			os.Exit(1)
 		}
 	}()
+
+	if len(os.Args) > 1 && os.Args[1] == "--crash-now" {
+		fmt.Println("DEBUG: Triggering Go panic...")
+		panic("Manual panic for testing")
+	}
+
 	fmt.Println("sing-box:", C.Version)
 	fmt.Println("Xray-core:", core.Version())
 	fmt.Println()

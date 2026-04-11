@@ -8,7 +8,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-LOG_FILE="build_debug.log"
+LOG_FILE="$(pwd)/build_debug.log"
 echo "--- STRICT Build x86_64 (Qt 6.10.2, g++, No LTO, No O) started at $(date) ---" > "$LOG_FILE"
 
 # Функция для логирования ошибок
@@ -22,7 +22,14 @@ trap 'error_handler $LINENO' ERR
 echo -e "${YELLOW}[0/5] Pre-build Environment Check...${NC}"
 command -v g++ >/dev/null 2>&1 || { echo -e "${RED}g++ not found!${NC}"; exit 1; }
 command -v go >/dev/null 2>&1 || { echo -e "${RED}go not found!${NC}"; exit 1; }
+command -v curl >/dev/null 2>&1 || { echo -e "${RED}curl not found!${NC}"; exit 1; }
 command -v ccache >/dev/null 2>&1 || { echo -e "${YELLOW}ccache not found, proceeding without it...${NC}"; }
+
+# Ensure srslist.h is present
+if [ ! -f "srslist.h" ]; then
+    echo "Downloading srslist.h..."
+    curl -fLso srslist.h "https://raw.githubusercontent.com/throneproj/routeprofiles/rule-set/srslist.h" >> "$LOG_FILE" 2>&1
+fi
 
 echo -e "${YELLOW}[1/5] Setup Environment (Qt 6.10.2)...${NC}"
 # Жесткая привязка к версии 6.10.2
@@ -64,19 +71,27 @@ cmake -GNinja \
   -DCMAKE_CXX_FLAGS="-O2" \
   -DCMAKE_C_FLAGS="-O2" \
   -DQt6_DIR="$QT_ROOT/lib/cmake/Qt6" \
-  .. >> "../$LOG_FILE" 2>&1
-ninja >> "../$LOG_FILE" 2>&1
+  .. >> "$LOG_FILE" 2>&1
+ninja >> "$LOG_FILE" 2>&1
 cp ../res/translations/*.qm lang/ || true
 cd ..
 
 echo -e "${YELLOW}[4/5] Running C++ QTest...${NC}"
-cd build && ctest --output-on-failure >> "../$LOG_FILE" 2>&1
+cd build && ctest --output-on-failure >> "$LOG_FILE" 2>&1
 cd ..
 
 echo -e "${YELLOW}[5/5] Packaging...${NC}"
 export NO_STRIP=1
 export QT_ROOT="/var/home/sanya/Qt6.10/6.10.2/gcc_64"
 ./script/deploy_linux64.sh >> "$LOG_FILE" 2>&1
+
+# --- ДОПОЛНЕНИЕ: ПОЛНАЯ ДИАГНОСТИКА ПОСЛЕ СБОРКИ ---
+if [[ "$*" == *"--full-check"* ]]; then
+    echo -e "${YELLOW}[БОНУС] Запуск полной диагностики (Memory/Traces)...${NC}"
+    ./script/debug_all.sh >> "$LOG_FILE" 2>&1 || echo "Diagnostic had some issues, check logs."
+    ./script/collect_logs.sh >> "$LOG_FILE" 2>&1
+    echo -e "${GREEN}✔ Полная диагностика завершена!${NC}"
+fi
 
 echo -e "${GREEN}✔ STRICT BUILD SUCCESSFUL!${NC}"
 echo "Qt Version: 6.10.2"

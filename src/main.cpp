@@ -13,13 +13,17 @@
 #include <QLocalSocket>
 #include <QLocalServer>
 #include <QThread>
+#include <QPointer>
+#include <QSocketNotifier>
 #include <3rdparty/WinCommander.hpp>
 
 #include "include/global/Configs.hpp"
+#include "include/dataStore/Database.hpp"
 #include "include/ui/core/TranslationManager.hpp"
 #include "include/sys/platform/SystemThemeWatcher.hpp"
 
 #include "include/ui/mainwindow_interface.h"
+#include <valgrind/valgrind.h>
 
 #ifdef Q_OS_WIN
 #include "include/sys/windows/MiniDump.h"
@@ -30,6 +34,25 @@
 #ifdef Q_OS_LINUX
 #include <include/sys/linux/coreDump.h>
 #include <qfontdatabase.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#endif
+
+static bool is_exiting_global = false;
+
+#ifdef Q_OS_LINUX
+static int sig_pipe_fd[2];
+
+/**
+ * Low-level signal handler.
+ * Writes a byte to a pipe to notify the main thread.
+ */
+void unix_signal_handler(int signum) {
+    char a = (char)signum;
+    if (::write(sig_pipe_fd[0], &a, 1) == -1) {
+        // Ignore errors
+    }
+}
 #endif
 
 /**
@@ -37,30 +60,40 @@
  * Ensures proxy core is stopped and state is saved before termination.
  */
 void signal_handler(int signum) {
-    if (GetMainWindow()) {
-        GetMainWindow()->prepare_exit();
-        qApp->quit();
+    if (is_exiting_global) return;
+    is_exiting_global = true;
+    
+    fprintf(stderr, "Signal %d received, exiting...\n", signum);
+    if (QCoreApplication::instance()) {
+        if (GetMainWindow()) {
+            GetMainWindow()->prepare_exit();
+        }
+        QCoreApplication::quit();
+    } else {
+        exit(0);
     }
 }
 
-QTranslator* trans = nullptr;
-QTranslator* trans_qt = nullptr;
+// Fixed: Using QPointer to avoid dangling pointers and potential memory issues
+QPointer<QTranslator> trans = nullptr;
+QPointer<QTranslator> trans_qt = nullptr;
 
 /**
  * Fallback translation loader.
  * Used when external .qm files are missing or on initial startup.
  */
 void loadTranslate(const QString& locale) {
-    if (trans != nullptr) {
+    if (trans) {
         QCoreApplication::removeTranslator(trans);
-        trans->deleteLater();
+        delete trans;
     }
-    if (trans_qt != nullptr) {
+    if (trans_qt) {
         QCoreApplication::removeTranslator(trans_qt);
-        trans_qt->deleteLater();
+        delete trans_qt;
     }
-    trans = new QTranslator;
-    trans_qt = new QTranslator;
+    
+    trans = new QTranslator(qApp);
+    trans_qt = new QTranslator(qApp);
     QLocale::setDefault(QLocale(locale));
     
     // Load app-specific translations
@@ -82,7 +115,105 @@ void loadTranslate(const QString& locale) {
 
 #define LOCAL_SERVER_PREFIX "throne-"
 
+#include <QDateTime>
+#include <QFile>
+#include <QTextStream>
+#include <QPushButton>
+
+/**
+ * Global Message Handler.
+ * Intercepts all qDebug, qWarning, etc., and writes them to application.log
+ */
+void myMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg) {
+    // If QCoreApplication is already destroyed, we can't get applicationDirPath
+    if (!QCoreApplication::instance()) {
+        fprintf(stderr, "Log during/after shutdown: %s\n", msg.toStdString().c_str());
+        return;
+    }
+
+    static QString logPath;
+    if (logPath.isEmpty()) {
+        logPath = QCoreApplication::applicationDirPath() + "/application.log";
+    }
+    
+    QFile logFile(logPath);
+    if (logFile.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+        QTextStream out(&logFile);
+        QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz");
+        const char* level;
+        switch (type) {
+            case QtDebugMsg:    level = "DEBUG"; break;
+            case QtInfoMsg:     level = "INFO "; break;
+            case QtWarningMsg:  level = "WARN "; break;
+            case QtCriticalMsg: level = "CRIT "; break;
+            case QtFatalMsg:    level = "FATAL"; break;
+            default:            level = "UNKN "; break;
+        }
+        out << timestamp << " [" << level << "] " << (context.category ? context.category : "default") << ": " << msg << "\n";
+        out.flush();
+        logFile.close();
+    }
+    
+    // Always print to stderr for console/GDB
+    fprintf(stderr, "[%d] %s\n", (int)type, msg.toStdString().c_str());
+}
+
+/**
+ * UI Event Filter.
+ * Logs every button click in the application.
+ */
+class UIEventFilter : public QObject {
+public:
+    explicit UIEventFilter(QObject *parent = nullptr) : QObject(parent) {}
+protected:
+    bool eventFilter(QObject *obj, QEvent *event) override {
+        if (event->type() == QEvent::MouseButtonRelease) {
+            auto *button = qobject_cast<QPushButton*>(obj);
+            if (button) {
+                QString name = button->objectName();
+                if (name.isEmpty()) {
+                    name = QString("Unnamed %1 (parent: %2)").arg(button->metaObject()->className()).arg(button->parent() ? button->parent()->metaObject()->className() : "none");
+                }
+                qDebug() << "[UI Interaction] Button clicked:" << name << "Text:" << button->text();
+            }
+        }
+        return QObject::eventFilter(obj, event);
+    }
+};
+
+#include "include/global/TraceHelper.hpp"
+
+// Helper for clean exit from any point in main()
+void performCleanup() {
+    static bool cleaned = false;
+    if (cleaned) return;
+    cleaned = true;
+
+    TranslationManager::destroy();
+    
+    // Clean up global data structures to avoid leaks reported by Valgrind
+    delete Configs::profileManager;
+    Configs::profileManager = nullptr;
+    delete Configs::dataStore;
+    Configs::dataStore = nullptr;
+
+    if (DS_cores) {
+        DS_cores->quit();
+        if (!DS_cores->wait(2000)) {
+            DS_cores->terminate();
+            DS_cores->wait();
+        }
+        delete DS_cores;
+        DS_cores = nullptr;
+    }
+}
+
 int main(int argc, char* argv[]) {
+    if (RUNNING_ON_VALGRIND) {
+        fprintf(stderr, "[DIAGNOSTIC] Deep memory tracing detected (Valgrind is active).\n");
+    }
+    THRONE_TRACE("App Startup");
+    qInstallMessageHandler(myMessageHandler);
     QStringList args;
     for (int i = 0; i < argc; ++i) args << QString::fromLocal8Bit(argv[i]);
 
@@ -101,16 +232,6 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-#ifdef Q_OS_LINUX
-    // Headless environment fallback
-    if (!args.contains("--offscreen") && qEnvironmentVariableIsEmpty("DISPLAY") && qEnvironmentVariableIsEmpty("WAYLAND_DISPLAY")) {
-        qputenv("QT_QPA_PLATFORM", "offscreen");
-    } else if (qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM")) {
-        // Fallback for Wayland failures: try Wayland first, then fallback to X11 (xcb)
-        qputenv("QT_QPA_PLATFORM", "wayland;xcb");
-    }
-#endif
-
 #ifdef Q_OS_WIN
     Windows_SetCrashHandler();
 #endif
@@ -118,8 +239,16 @@ int main(int argc, char* argv[]) {
     setup_crash_handlers();
 #endif
 
-    QApplication::setQuitOnLastWindowClosed(false);
+    if (args.contains("--crash-now")) {
+        printf("DEBUG: Triggering manual SIGSEGV...\n");
+        int *p = nullptr;
+        *p = 123;
+        return 0;
+    }
+
     QApplication a(argc, argv);
+    a.installEventFilter(new UIEventFilter(&a)); // Fixed leak: added parent
+    a.setQuitOnLastWindowClosed(false);
 
 #if (QT_VERSION >= QT_VERSION_CHECK(6,9,0))
     // Global emoji font support
@@ -161,7 +290,7 @@ int main(int argc, char* argv[]) {
     Configs::dataStore->flag_debug = true;
 #endif
 
-    // Workspace initialization (Portable vs AppData)
+    // Workspace initialization
     auto wd = QDir(QApplication::applicationDirPath());
     if (Configs::dataStore->flag_use_appdata) {
         QApplication::setApplicationName("Neko Throne");
@@ -184,12 +313,31 @@ int main(int argc, char* argv[]) {
     DS_cores = new QThread;
     DS_cores->start();
 
+    // Single instance check via local socket
+    QByteArray hashBytes = QCryptographicHash::hash(wd.absolutePath().toUtf8(), QCryptographicHash::Md5).toBase64(QByteArray::OmitTrailingEquals);
+    hashBytes.replace('+', '0').replace('/', '1');
+    auto serverName = LOCAL_SERVER_PREFIX + QString::fromUtf8(hashBytes);
+    
+    {
+        QLocalSocket socket;
+        socket.connectToServer(serverName);
+        if (socket.waitForConnected(250)) {
+            socket.disconnectFromServer();
+            qInfo() << "Another instance is already running. Exiting.";
+            performCleanup();
+            return 0;
+        }
+        // If we failed to connect, but the file exists, it's a stale socket
+        if (QLocalServer::removeServer(serverName)) {
+            qInfo() << "Cleaned up stale local server socket:" << serverName;
+        }
+    }
+
     QIcon::setFallbackSearchPaths(QStringList{ ":/icon" });
     if (QIcon::themeName().isEmpty()) {
         QIcon::setThemeName("breeze");
     }
 
-    // Check write permissions for essential directories
     QDir dir;
     bool dir_success = true;
     if (!dir.exists("profiles")) dir_success &= dir.mkdir("profiles");
@@ -197,15 +345,14 @@ int main(int argc, char* argv[]) {
     if (!dir.exists(ROUTES_PREFIX_NAME)) dir_success &= dir.mkdir(ROUTES_PREFIX_NAME);
     if (!dir_success) {
         QMessageBox::critical(nullptr, QObject::tr("Error"), QObject::tr("No permission to write in %1").arg(dir.absolutePath()));
+        performCleanup();
         return 1;
     }
 
-    // Migration from older versions
     if (QFile::exists("groups/nekobox.json")) {
         QFile::rename("groups/nekobox.json", "configs.json");
     }
 
-    // Load global state
     Configs::dataStore->fn = "configs.json";
     if (!Configs::dataStore->Load()) {
         Configs::dataStore->Save();
@@ -217,6 +364,7 @@ int main(int argc, char* argv[]) {
         Configs::dataStore->windows_set_admin = false;
         Configs::dataStore->Save();
         WinCommander::runProcessElevated(QApplication::applicationFilePath(), {}, "", WinCommander::SW_NORMAL, false);
+        performCleanup();
         return 0;
     }
 #endif
@@ -251,38 +399,46 @@ int main(int argc, char* argv[]) {
         QGuiApplication::setLayoutDirection(Qt::RightToLeft);
     }
 
-    // Single instance check via local socket
-    QByteArray hashBytes = QCryptographicHash::hash(wd.absolutePath().toUtf8(), QCryptographicHash::Md5).toBase64(QByteArray::OmitTrailingEquals);
-    hashBytes.replace('+', '0').replace('/', '1');
-    auto serverName = LOCAL_SERVER_PREFIX + QString::fromUtf8(hashBytes);
-    
-    QLocalSocket socket;
-    socket.connectToServer(serverName);
-    if (socket.waitForConnected(250)) {
-        socket.disconnectFromServer();
-        return 0;
-    }
-
-    QLocalServer server(qApp);
-    server.setSocketOptions(QLocalServer::WorldAccessOption);
-    if (!server.listen(serverName)) {
+    QLocalServer *server = new QLocalServer(qApp);
+    server->setSocketOptions(QLocalServer::WorldAccessOption);
+    if (!server->listen(serverName)) {
+        delete server;
+        performCleanup();
         return 1;
     }
     
-    QObject::connect(&server, &QLocalServer::newConnection, qApp, [&] {
-        auto s = server.nextPendingConnection();
-        s->close();
+    QObject::connect(server, &QLocalServer::newConnection, qApp, [server] {
+        auto s = server->nextPendingConnection();
+        if (s) {
+            s->close();
+            s->deleteLater();
+        }
         MW_dialog_message("", "Raise"); 
     });
     
-    QObject::connect(qApp, &QApplication::aboutToQuit, [&] {
-        server.close();
+    QObject::connect(qApp, &QApplication::aboutToQuit, [server, serverName] {
+        server->close();
         QLocalServer::removeServer(serverName);
+        server->deleteLater();
     });
 
 #ifdef Q_OS_LINUX
-    signal(SIGTERM, signal_handler);
-    signal(SIGINT, signal_handler);
+    if (::socketpair(AF_UNIX, SOCK_STREAM, 0, sig_pipe_fd) == 0) {
+        auto *notifier = new QSocketNotifier(sig_pipe_fd[1], QSocketNotifier::Read, qApp);
+        QObject::connect(notifier, &QSocketNotifier::activated, qApp, [] {
+            char a;
+            if (::read(sig_pipe_fd[1], &a, 1) > 0) {
+                signal_handler((int)a);
+            }
+        });
+        
+        struct sigaction sa;
+        sa.sa_handler = unix_signal_handler;
+        sigemptyset(&sa.sa_mask);
+        sa.sa_flags = SA_RESTART;
+        sigaction(SIGTERM, &sa, NULL);
+        sigaction(SIGINT, &sa, NULL);
+    }
 #endif
 
 #ifdef Q_OS_WIN
@@ -291,5 +447,9 @@ int main(int argc, char* argv[]) {
 #endif
 
     UI_InitMainWindow();
-    return QApplication::exec();
+    int ret = QApplication::exec();
+    
+    performCleanup();
+
+    return ret;
 }

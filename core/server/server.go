@@ -1,31 +1,34 @@
 package main
 
 import (
-"ThroneCore/gen"
-"ThroneCore/internal/boxbox"
-"ThroneCore/internal/boxmain"
-"ThroneCore/internal/process"
-"ThroneCore/internal/sys"
-"ThroneCore/internal/wg"
-"ThroneCore/internal/xray"
-"ThroneCore/test_utils"
-"context"
-"errors"
-"fmt"
-"log"
-"net/netip"
-"os"
-"runtime"
-"strings"
-"time"
+	"ThroneCore/gen"
+	"ThroneCore/internal/boxbox"
+	"ThroneCore/internal/boxmain"
+	"ThroneCore/internal/process"
+	"ThroneCore/internal/sys"
+	"ThroneCore/internal/wg"
+	"ThroneCore/internal/xray"
+	"ThroneCore/test_utils"
+	"bufio"
+	"context"
+	"errors"
+	"fmt"
+	"log"
+	"net/netip"
+	"os"
+	"os/exec"
+	"runtime"
+	"strconv"
+	"strings"
+	"time"
 
-"github.com/google/shlex"
-"github.com/sagernet/sing-box/adapter"
-"github.com/sagernet/sing-box/experimental/clashapi"
-"github.com/sagernet/sing/common"
-E "github.com/sagernet/sing/common/exceptions"
-"github.com/sagernet/sing/service"
-"github.com/xtls/xray-core/core"
+	"github.com/google/shlex"
+	"github.com/sagernet/sing-box/adapter"
+	"github.com/sagernet/sing-box/experimental/clashapi"
+	"github.com/sagernet/sing/common"
+	E "github.com/sagernet/sing/common/exceptions"
+	"github.com/sagernet/sing/service"
+	"github.com/xtls/xray-core/core"
 )
 
 var boxInstance *boxbox.Box
@@ -38,33 +41,56 @@ var debug bool
 var xrayInstance *core.Instance
 
 type server struct {
-gen.UnimplementedLibcoreServiceServer
+	gen.UnimplementedLibcoreServiceServer
 }
 
 // To returns a pointer to the given value.
 func To[T any](v T) *T {
-return &v
+	return &v
 }
 
 func (s *server) Start(ctx context.Context, in *gen.LoadConfigReq) (out *gen.ErrorResp, _ error) {
-var err error
+	var err error
 
-defer func() {
-out = &gen.ErrorResp{}
-if err != nil {
-out.Error = To(err.Error())
-boxInstance = nil
-}
-}()
+	defer func() {
+		out = &gen.ErrorResp{}
+		if err != nil {
+			out.Error = To(err.Error())
+			boxInstance = nil
+		}
+	}()
 
-if debug {
-log.Println("Start:", *in.CoreConfig)
-}
+	// Fix permission issue for cache.db created when running with SUID/root
+	if runtime.GOOS == "linux" {
+		uid := os.Getuid()
+		gid := os.Getgid()
+		
+		// Ensure cache files belong to the real user, not root
+		files := []string{"cache.db", "cache.db-shm", "cache.db-wal"}
+		for _, f := range files {
+			// Touch file if not exists so we can chown/chmod it
+			if _, err := os.Stat(f); os.IsNotExist(err) {
+				file, _ := os.Create(f)
+				if file != nil { file.Close() }
+			}
+			_ = os.Chown(f, uid, gid)
+			_ = os.Chmod(f, 0666)
+		}
+	}
 
-if boxInstance != nil {
-err = errors.New("instance already started")
-return
-}
+	if debug {
+		log.Println("Start:", *in.CoreConfig)
+	}
+
+	if boxInstance != nil {
+		err = errors.New("instance already started")
+		return
+	}
+
+	// Linux specific cleanup to fix "netlink receive: file exists" (nftables/TUN conflict)
+	if runtime.GOOS == "linux" {
+		linuxNetworkCleanup()
+	}
 
 if *in.NeedExtraProcess {
 args, e := shlex.Split(in.GetExtraProcessArgs())
@@ -117,19 +143,20 @@ if in == nil || in.CoreConfig == nil {
 	return
 }
 
-boxInstance, instanceCancel, err = boxmain.Create([]byte(*in.CoreConfig), in.GetDisableDnsRouting())
-if err != nil {
-	log.Printf("[Core] Failed to create instance: %v", err)
-	if extraProcess != nil {
-		extraProcess.Stop()
-		extraProcess = nil
-	} 
- if xrayInstance != nil {
-xrayInstance.Close()
-xrayInstance = nil
-}
-return
-}
+	boxInstance, instanceCancel, err = boxmain.Create([]byte(*in.CoreConfig), in.GetDisableDnsRouting())
+	if err != nil {
+		log.Printf("[Core] FATAL: Failed to create sing-box instance: %v", err)
+		log.Printf("[Core] Config used: %s", *in.CoreConfig)
+		if extraProcess != nil {
+			extraProcess.Stop()
+			extraProcess = nil
+		} 
+		if xrayInstance != nil {
+			xrayInstance.Close()
+			xrayInstance = nil
+		}
+		return
+	}
 
 if runtime.GOOS == "darwin" && in.GetTunIpv4Cidr() != "" {
 stopAllCores := func() {
@@ -386,13 +413,136 @@ return &gen.ListConnectionsResp{Connections: res}, nil
 }
 
 func (s *server) IsPrivileged(ctx context.Context, _ *gen.EmptyReq) (*gen.IsPrivilegedResponse, error) {
-if runtime.GOOS == "windows" {
-return &gen.IsPrivilegedResponse{
-HasPrivilege: To(false),
-}, nil
+	if runtime.GOOS == "windows" {
+		return &gen.IsPrivilegedResponse{HasPrivilege: To(true)}, nil
+	}
+
+	hasPriv := os.Geteuid() == 0
+
+	// On Linux, we may not be root but still hold CAP_NET_ADMIN via file capabilities
+	// or an ambient set. Read /proc/self/status, which is cheap, side-effect-free,
+	// and does not require any external binary (iproute2 may not be installed).
+	if !hasPriv && runtime.GOOS == "linux" {
+		hasPriv = linuxHasCapNetAdmin()
+	}
+
+	return &gen.IsPrivilegedResponse{HasPrivilege: To(hasPriv)}, nil
 }
 
-return &gen.IsPrivilegedResponse{HasPrivilege: To(os.Geteuid() == 0)}, nil
+// linuxHasCapNetAdmin returns true if the current process has CAP_NET_ADMIN in
+// its effective capability set. CAP_NET_ADMIN is bit 12 per <linux/capability.h>.
+func linuxHasCapNetAdmin() bool {
+	f, err := os.Open("/proc/self/status")
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if !strings.HasPrefix(line, "CapEff:") {
+			continue
+		}
+		hex := strings.TrimSpace(strings.TrimPrefix(line, "CapEff:"))
+		caps, err := strconv.ParseUint(hex, 16, 64)
+		if err != nil {
+			return false
+		}
+		const capNetAdmin = 12
+		return (caps>>capNetAdmin)&1 == 1
+	}
+	return false
+}
+
+// linuxNetworkCleanup tears down any stale sing-box / throne state left over from
+// a previous crash or unclean shutdown. This is the mitigation for two classes of
+// post-start failures observed in the logs:
+//
+//   1. "post-start inbound/tun[tun-in]: auto-redirect: conn.Receive: netlink
+//      receive: file exists" — sing-box tried to create an nftables table/chain
+//      that was already present from a previous run.
+//   2. "start inbound/tun[tun-in]: configure tun interface: device or resource
+//      busy" — the previous TUN interface is still registered with the kernel.
+//
+// The cleanup is silent about missing binaries (nft/ip) so the call is safe on
+// systems where iproute2/nftables aren't installed, and bounded so a pathological
+// kernel state can never wedge the call.
+func linuxNetworkCleanup() {
+	log.Println("[Core] Initiating network cleanup...")
+
+	nft, nftErr := exec.LookPath("nft")
+	ipBin, ipErr := exec.LookPath("ip")
+	if nftErr != nil && ipErr != nil {
+		log.Println("[Core] Neither nft nor ip found; skipping cleanup.")
+		return
+	}
+
+	// 1. nftables: enumerate live tables and delete any sing-box / throne
+	// related ones. Using `nft -a list tables` lets us discover tables we might
+	// not know the name of (e.g. auto-redirect has used "sing-box" in the past
+	// but could change); we match by substring to stay forward-compatible.
+	if nftErr == nil {
+		out, err := exec.Command(nft, "list", "tables").Output()
+		if err == nil {
+			scanner := bufio.NewScanner(strings.NewReader(string(out)))
+			for scanner.Scan() {
+				// Each line looks like: `table inet sing-box`
+				fields := strings.Fields(scanner.Text())
+				if len(fields) < 3 || fields[0] != "table" {
+					continue
+				}
+				family, name := fields[1], fields[2]
+				if strings.Contains(name, "sing-box") || strings.Contains(name, "throne") {
+					_ = exec.Command(nft, "delete", "table", family, name).Run()
+				}
+			}
+		}
+		// Legacy: also try deleting the common default table names in every
+		// family, in case `nft list tables` was ratelimited or failed.
+		for _, family := range []string{"inet", "ip", "ip6", "bridge", "arp"} {
+			_ = exec.Command(nft, "delete", "table", family, "sing-box").Run()
+		}
+	}
+
+	if ipErr == nil {
+		// 2. Interfaces: delete any lingering TUN devices we may have created.
+		// Try the configured name plus common alternates.
+		for _, iface := range []string{"throne-tun", "sing-tun", "singtun0", "tun0", "tun1", "utun0", "utun1"} {
+			_ = exec.Command(ipBin, "link", "set", iface, "down").Run()
+			_ = exec.Command(ipBin, "link", "delete", iface).Run()
+		}
+
+		// 3. Routing Rules: sing-box's auto-route adds ip rules at priority 9000
+		// referencing fwmark 1 / table 100. Remove them. Loop because multiple
+		// rules may exist; cap iterations so we can never hang.
+		const maxRuleIters = 32
+		for i := 0; i < maxRuleIters; i++ {
+			removed := false
+			for _, args := range [][]string{
+				{"-4", "rule", "del", "priority", "9000"},
+				{"-4", "rule", "del", "fwmark", "1", "lookup", "100"},
+				{"-6", "rule", "del", "priority", "9000"},
+				{"-6", "rule", "del", "fwmark", "1", "lookup", "100"},
+			} {
+				if exec.Command(ipBin, args...).Run() == nil {
+					removed = true
+				}
+			}
+			if !removed {
+				break
+			}
+		}
+
+		// 4. Routing tables: flush our custom table so stale routes can't
+		// survive into the new session.
+		_ = exec.Command(ipBin, "-4", "route", "flush", "table", "100").Run()
+		_ = exec.Command(ipBin, "-6", "route", "flush", "table", "100").Run()
+	}
+
+	log.Println("[Core] Network cleanup finished.")
+	// Short pause so netlink cache settles before sing-box touches it again.
+	time.Sleep(250 * time.Millisecond)
 }
 
 func (s *server) SpeedTest(ctx context.Context, in *gen.SpeedTestRequest) (*gen.SpeedTestResponse, error) {

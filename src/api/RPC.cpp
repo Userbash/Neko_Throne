@@ -12,6 +12,8 @@
 #include <QSemaphore>
 #include <QAbstractNetworkCache>
 
+#include "include/global/TraceHelper.hpp"
+
 namespace QtGrpc {
     const char *GrpcAcceptEncodingHeader = "grpc-accept-encoding";
     const char *AcceptEncodingHeader = "accept-encoding";
@@ -41,6 +43,7 @@ namespace QtGrpc {
         QString serviceName;
 
         QNetworkReply *post(const QString &method, const QString &service, const QByteArray &args) {
+            THRONE_TRACE(service + "::" + method);
             QUrl callUrl = url_base + "/" + service + "/" + method;
 
             QNetworkRequest request(callUrl);

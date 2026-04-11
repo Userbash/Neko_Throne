@@ -538,15 +538,19 @@ void MainWindow::profile_start(int _id) {
                         QMessageBox::NoButton,
                         this
                     );
-                    msg.addButton(tr("Reset"), QMessageBox::ActionRole);
-                    auto cancel = msg.addButton(tr("Cancel"), QMessageBox::ActionRole);
+                    auto resetBtn = msg.addButton(tr("Reset"), QMessageBox::ActionRole);
+                    auto fixBtn = msg.addButton(tr("Fix Permissions"), QMessageBox::ActionRole);
+                    auto cancelBtn = msg.addButton(tr("Cancel"), QMessageBox::ActionRole);
 
-                    msg.setDefaultButton(cancel);
-                    msg.setEscapeButton(cancel);
+                    msg.setDefaultButton(cancelBtn);
+                    msg.setEscapeButton(cancelBtn);
 
-                    int r = msg.exec() - 2;
-                    if (r == 0) {
+                    msg.exec();
+                    if (msg.clickedButton() == resetBtn) {
+                        MW_show_log(tr("Initiating deep network cleanup and core reset..."));
                         StopVPNProcess();
+                    } else if (msg.clickedButton() == fixBtn) {
+                        get_elevated_permissions();
                     }
                 });
                 return false;

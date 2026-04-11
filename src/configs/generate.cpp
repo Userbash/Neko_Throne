@@ -1,5 +1,6 @@
 #include "include/configs/generate.h"
 #include "include/dataStore/Database.hpp"
+#include <QDir>
 #include "include/configs/proxy/includes.h"
 #include "include/api/RPC.h"
 #include "include/global/Configs.hpp"
@@ -922,6 +923,7 @@ namespace Configs {
 
         QJsonObject cache_file = {
             {"enabled", true},
+            {"path", "cache.db"},
             {"store_fakeip", true},
             {"store_rdrc", true}
         };
