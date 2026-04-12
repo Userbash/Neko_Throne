@@ -24,12 +24,14 @@ DialogManageGroups::DialogManageGroups(QWidget *parent) : QDialog(parent), ui(ne
     ui->setupUi(this);
 
     for (auto id: Configs::profileManager->groupsTabOrder) {
-        AddGroupToListIfExist(id)
+        AddGroupToListIfExist(id);
     }
 
     connect(ui->listWidget, &QListWidget::itemDoubleClicked, this, [=,this](QListWidgetItem *wI) {
         auto w = dynamic_cast<GroupItem *>(ui->listWidget->itemWidget(wI));
-        emit w->edit_clicked();
+        if (w != nullptr) {
+            emit w->edit_clicked();
+        }
     });
 }
 

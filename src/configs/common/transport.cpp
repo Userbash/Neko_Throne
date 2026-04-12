@@ -84,8 +84,8 @@ namespace Configs {
             }
             if (!object.servername.empty()) {
                 host = QString::fromStdString(object.servername);
-            } else if (object.ws_opts.headers.contains("Host")) {
-                host = QString::fromStdString(object.ws_opts.headers.at("Host"));
+            } else if (object.ws_opts.headers.contains("Host") && !object.ws_opts.headers.at("Host").empty()) {
+                host = QString::fromStdString(object.ws_opts.headers.at("Host")[0]);
             }
             if (!object.ws_opts.headers.empty()) {
                 for (const auto& [key, value] : object.ws_opts.headers) {

@@ -323,7 +323,7 @@ void MainWindow::querySpeedtest(QDateTime& lastProxyListUpdate, const QMap<QStri
             if (!res.result.value().dl_speed.value().empty()) profile->dl_speed = QString::fromStdString(res.result.value().dl_speed.value());
             if (!res.result.value().ul_speed.value().empty()) profile->ul_speed = QString::fromStdString(res.result.value().ul_speed.value());
             if (profile->latency <= 0 && res.result.value().latency.value() > 0) profile->latency = res.result.value().latency.value();
-            if (!res.result->server_country.value().empty()) profile->test_country = CountryNameToCode(QString::fromStdString(res.result.value().server_country.value()));
+            if (!res.result.value().server_country.value().empty()) profile->test_country = CountryNameToCode(QString::fromStdString(res.result.value().server_country.value()));
             refresh_proxy_list(profile->id);
         }
     });
@@ -705,8 +705,11 @@ void MainWindow::profile_stop(bool crash, bool block, bool manual) {
             Stats::trafficLooper->UpdateAll();
             for (const auto &item: Stats::trafficLooper->items) {
                 if (item->id < 0) continue;
-                Configs::profileManager->GetProfile(item->id)->Save();
-                refresh_proxy_list(item->id);
+                auto profile = Configs::profileManager->GetProfile(item->id);
+                if (profile != nullptr) {
+                    profile->Save();
+                    refresh_proxy_list(item->id);
+                }
             }
             Stats::trafficLooper->loop_mutex.unlock();
         } else {

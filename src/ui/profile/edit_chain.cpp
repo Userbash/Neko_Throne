@@ -41,10 +41,13 @@ bool EditChain::onEnd() {
 
 void EditChain::on_select_profile_clicked() {
     get_edit_dialog()->hide();
-    GetMainWindow()->start_select_mode(this, [=,this](int id) {
-        get_edit_dialog()->show();
-        AddProfileToListIfExist(id);
-    });
+    auto mw = GetMainWindow();
+    if (mw != nullptr) {
+        mw->start_select_mode(this, [=,this](int id) {
+            get_edit_dialog()->show();
+            AddProfileToListIfExist(id);
+        });
+    }
 }
 
 void EditChain::AddProfileToListIfExist(int profileId) {
@@ -58,10 +61,13 @@ void EditChain::AddProfileToListIfExist(int profileId) {
         // change button
         connect(w->get_change_button(), &QPushButton::clicked, w, [=,this] {
             get_edit_dialog()->hide();
-            GetMainWindow()->start_select_mode(w, [=,this](int newId) {
-                get_edit_dialog()->show();
-                ReplaceProfile(w, newId);
-            });
+            auto mw = GetMainWindow();
+            if (mw != nullptr) {
+                mw->start_select_mode(w, [=,this](int newId) {
+                    get_edit_dialog()->show();
+                    ReplaceProfile(w, newId);
+                });
+            }
         });
     }
 }

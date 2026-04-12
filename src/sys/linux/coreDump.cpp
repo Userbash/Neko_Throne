@@ -33,7 +33,9 @@ static void posix_crash_handler(int sig) {
     backtrace_symbols_fd(array, size, STDERR_FILENO);
     fprintf(stderr, "----------------------------------\n");
 
-    if (getenv("THRONE_ALLOW_CORE_DUMP")) {
+    // Check if core dump is explicitly enabled
+    const char* allow_core_dump = getenv("THRONE_ALLOW_CORE_DUMP");
+    if (allow_core_dump != nullptr && allow_core_dump[0] != '\0') {
         signal(sig, SIG_DFL);
         raise(sig);
     } else {

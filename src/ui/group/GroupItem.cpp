@@ -92,7 +92,10 @@ void GroupItem::refresh_data() {
         [=,this] {
             adjustSize();
             item->setSizeHint(sizeHint());
-            dynamic_cast<QWidget *>(parent())->adjustSize();
+            auto parentWidget = dynamic_cast<QWidget *>(parent());
+            if (parentWidget != nullptr) {
+                parentWidget->adjustSize();
+            }
         },
         this);
 }

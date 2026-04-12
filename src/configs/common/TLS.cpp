@@ -51,7 +51,7 @@ namespace Configs {
     {
         if (!supported) return {};
         auto obj = ExportToJson();
-        if ((obj.isEmpty() || obj["enabled"].toBool() == false || fingerPrint.isEmpty()) && !dataStore->utlsFingerprint.isEmpty()) {
+        if ((obj.isEmpty() || !obj["enabled"].toBool() || fingerPrint.isEmpty()) && !dataStore->utlsFingerprint.isEmpty()) {
             obj["enabled"] = true;
             obj["fingerprint"] = dataStore->utlsFingerprint;
         }

@@ -309,6 +309,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     {
         if (row1 == row2) return;
         auto group = Configs::profileManager->CurrentGroup();
+        if (group == nullptr) return;
         group->EmplaceProfile(row1, row2);
         refresh_proxy_list();
         group->Save();
@@ -338,7 +339,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
             return;
         }
         refresh_proxy_list_impl(-1, action);
-        Configs::profileManager->CurrentGroup()->Save();
+        auto group = Configs::profileManager->CurrentGroup();
+        if (group != nullptr) {
+            group->Save();
+        }
     });
     connect(ui->proxyListTable->horizontalHeader(), &QHeaderView::sectionResized, this, [=, this](int logicalIndex, int oldSize, int newSize) {
         auto group = Configs::profileManager->CurrentGroup();
@@ -592,7 +596,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         urltest_current_group(get_now_selected_list());
     });
     connect(ui->actionUrl_Test_Group, &QAction::triggered, this, [=,this]() {
-        urltest_current_group(Configs::profileManager->CurrentGroup()->GetProfileEnts());
+        auto group = Configs::profileManager->CurrentGroup();
+        if (group != nullptr) {
+            urltest_current_group(group->GetProfileEnts());
+        }
     });
     connect(ui->actionSpeedtest_Current, &QAction::triggered, this, [=,this]()
     {
@@ -607,7 +614,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     });
     connect(ui->actionSpeedtest_Group, &QAction::triggered, this, [=,this]()
     {
-        speedtest_current_group(Configs::profileManager->CurrentGroup()->GetProfileEnts());
+        auto group = Configs::profileManager->CurrentGroup();
+        if (group != nullptr) {
+            speedtest_current_group(group->GetProfileEnts());
+        }
     });
     connect(ui->menu_stop_testing, &QAction::triggered, this, [=,this]() { stopTests(); });
     //
@@ -857,9 +867,12 @@ void MainWindow::dialog_message_impl(const QString &sender, const QString &info)
     {
         if (Configs::dataStore->system_dns_set)
         {
-            auto oldAddr = info.split(",")[1];
-            set_system_dns(false);
-            set_system_dns(true);
+            auto parts = info.split(",");
+            if (parts.size() >= 2) {
+                auto oldAddr = parts[1];
+                set_system_dns(false);
+                set_system_dns(true);
+            }
         }
     }
     if (info.contains("NeedRestart")) {
@@ -930,9 +943,13 @@ void MainWindow::dialog_message_impl(const QString &sender, const QString &info)
             if (Configs::dataStore->flag_dns_set) {
                 set_system_dns(true);
             }
-            if (auto id = info.split(",")[1].toInt(); id >= 0)
             {
-                profile_start(id);
+                auto parts = info.split(",");
+                if (parts.size() >= 2) {
+                    if (auto id = parts[1].toInt(); id >= 0) {
+                        profile_start(id);
+                    }
+                }
             }
             if (Configs::dataStore->system_dns_set) {
                 set_system_dns(true);
@@ -1063,8 +1080,9 @@ void MainWindow::on_menu_exit_triggered() {
     if (exit_reason == 1) {
         QDir::setCurrent(QApplication::applicationDirPath());
 #ifdef Q_OS_WIN
-        QFile::copy("./updater.exe", "./updater.old");
-        QProcess::startDetached("./updater.old", QStringList{});
+        if (QFile::copy("./updater.exe", "./updater.old")) {
+            QProcess::startDetached("./updater.old", QStringList{});
+        }
 #else
         QProcess::startDetached("./updater", QStringList{});
 #endif
@@ -1738,23 +1756,30 @@ void MainWindow::refresh_proxy_list_impl(const int &id, GroupSortAction groupSor
             case GroupSortMethod::ByType: {
                 std::sort(currentGroup->profiles.begin(), currentGroup->profiles.end(),
                           [=,this](int a, int b) {
+                              auto prof_a = Configs::profileManager->GetProfile(a);
+                              auto prof_b = Configs::profileManager->GetProfile(b);
+                              // Fallback to profile ID comparison if either profile is missing
+                              if (!prof_a || !prof_b) return a < b;
+
                               QString ms_a;
                               QString ms_b;
                               if (groupSortAction.method == GroupSortMethod::ByType) {
-                                  ms_a = Configs::profileManager->GetProfile(a)->outbound->DisplayType();
-                                  ms_b = Configs::profileManager->GetProfile(b)->outbound->DisplayType();
+                                  ms_a = prof_a->outbound->DisplayType();
+                                  ms_b = prof_b->outbound->DisplayType();
                               } else if (groupSortAction.method == GroupSortMethod::ByName) {
-                                  ms_a = Configs::profileManager->GetProfile(a)->outbound->name;
-                                  ms_b = Configs::profileManager->GetProfile(b)->outbound->name;
+                                  ms_a = prof_a->outbound->name;
+                                  ms_b = prof_b->outbound->name;
                               } else if (groupSortAction.method == GroupSortMethod::ByAddress) {
-                                  ms_a = Configs::profileManager->GetProfile(a)->outbound->DisplayAddress();
-                                  ms_b = Configs::profileManager->GetProfile(b)->outbound->DisplayAddress();
+                                  ms_a = prof_a->outbound->DisplayAddress();
+                                  ms_b = prof_b->outbound->DisplayAddress();
                               } else if (groupSortAction.method == GroupSortMethod::ByLatency) {
-                                  ms_a = Configs::profileManager->GetProfile(a)->full_test_report;
-                                  ms_b = Configs::profileManager->GetProfile(b)->full_test_report;
+                                  ms_a = prof_a->full_test_report;
+                                  ms_b = prof_b->full_test_report;
                               }
                               auto get_latency_for_sort = [](int id) {
-                                  auto i = Configs::profileManager->GetProfile(id)->latency;
+                                  auto p = Configs::profileManager->GetProfile(id);
+                                  if (!p) return 99999;
+                                  auto i = p->latency;
                                   if (i == 0) i = 100000;
                                   if (i < 0) i = 99999;
                                   return i;
@@ -1769,8 +1794,8 @@ void MainWindow::refresh_proxy_list_impl(const int &id, GroupSortAction groupSor
                                   return ms_a > ms_b;
                               } else {
                                   if (groupSortAction.method == GroupSortMethod::ByLatency) {
-                                      auto int_a = Configs::profileManager->GetProfile(a)->latency;
-                                      auto int_b = Configs::profileManager->GetProfile(b)->latency;
+                                      auto int_a = prof_a->latency;
+                                      auto int_b = prof_b->latency;
                                       if (ms_a.isEmpty() && ms_b.isEmpty()) {
                                           // compare latency if full_test_report is empty
                                           return get_latency_for_sort(a) < get_latency_for_sort(b);
@@ -2000,6 +2025,10 @@ void MainWindow::on_menu_export_config_triggered() {
     auto ent = ents.first();
 
     auto result = Configs::BuildSingBoxConfig(ent);
+    if (!result || !result->error.isEmpty()) {
+        MessageBoxWarning(tr("Build config error"), result ? result->error : tr("Unknown error"));
+        return;
+    }
     QString config_core = QJsonObject2QString(result->coreConfig, true);
     QApplication::clipboard()->setText(config_core);
 
@@ -2057,7 +2086,8 @@ void MainWindow::display_qr_link(bool nkrFormat) {
             constexpr qint32 qr_padding = 2;
             //
             try {
-                qrcodegen::QrCode qr = qrcodegen::QrCode::encodeText(link_display.toUtf8().data(), qrcodegen::QrCode::Ecc::MEDIUM);
+                auto utf8Data = link_display.toUtf8();
+                qrcodegen::QrCode qr = qrcodegen::QrCode::encodeText(utf8Data.data(), qrcodegen::QrCode::Ecc::MEDIUM);
                 qint32 sz = qr.getSize();
                 im = QImage(sz + qr_padding * 2, sz + qr_padding * 2, QImage::Format_RGB32);
                 QRgb black = qRgb(0, 0, 0);
@@ -2243,7 +2273,7 @@ std::atomic<bool> mw_sub_updating{false};
 
 void MainWindow::on_menu_update_subscription_triggered() {
     auto group = Configs::profileManager->CurrentGroup();
-    if (group->url.isEmpty()) return;
+    if (group == nullptr || group->url.isEmpty()) return;
     if (mw_sub_updating) return;
     mw_sub_updating = true;
     Subscription::groupUpdater->AsyncUpdate(group->url, group->id, [&] { mw_sub_updating = false; });
@@ -2286,24 +2316,26 @@ void MainWindow::on_menu_remove_invalid_triggered() {
      auto currentGroup = Configs::profileManager->GetGroup(Configs::dataStore->current_group);
      if (currentGroup == nullptr) return;
      std::atomic counter(0);
-     QMutex mu;
      QMutex access;
      int profileSize = currentGroup->GetProfileEnts().size();
-     mu.lock();
+     if (profileSize == 0) return;
+
      for (const auto& profile : currentGroup->GetProfileEnts()) {
-         parallelCoreCallPool->start([&out_del, profile, &counter, &mu, profileSize, &access]
+         parallelCoreCallPool->start([&out_del, profile, &counter, profileSize, &access]
          {
              if (!IsValid(profile))
              {
-                 access.lock();
+                 QMutexLocker locker(&access);
                  out_del += profile;
-                 access.unlock();
              }
-             if (++counter == profileSize) mu.unlock();
+             counter++;
          });
      }
-     mu.lock();
-     mu.unlock();
+
+     // Wait for all tasks to complete
+     while (counter.load() < profileSize) {
+         QThread::msleep(10);
+     }
 
      int remove_display_count = 0;
      QString remove_display;
@@ -2395,11 +2427,16 @@ QList<std::shared_ptr<Configs::ProxyEntity>> MainWindow::get_now_selected_list()
 QList<std::shared_ptr<Configs::ProxyEntity>> MainWindow::get_selected_or_group() {
     auto selected_or_group = ui->menu_server->property("selected_or_group").toInt();
     QList<std::shared_ptr<Configs::ProxyEntity>> profiles;
+    auto currentGroup = Configs::profileManager->CurrentGroup();
     if (selected_or_group > 0) {
         profiles = get_now_selected_list();
-        if (profiles.isEmpty() && selected_or_group == 2) profiles = Configs::profileManager->CurrentGroup()->GetProfileEnts();
+        if (profiles.isEmpty() && selected_or_group == 2 && currentGroup != nullptr) {
+            profiles = currentGroup->GetProfileEnts();
+        }
     } else {
-        profiles = Configs::profileManager->CurrentGroup()->GetProfileEnts();
+        if (currentGroup != nullptr) {
+            profiles = currentGroup->GetProfileEnts();
+        }
     }
     return profiles;
 }
@@ -2562,6 +2599,9 @@ void MainWindow::on_tabWidget_customContextMenuRequested(const QPoint &p) {
 bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
     if (event->type() == QEvent::MouseButtonPress) {
         auto mouseEvent = dynamic_cast<QMouseEvent *>(event);
+        if (mouseEvent == nullptr) {
+            return QMainWindow::eventFilter(obj, event);
+        }
         if (obj == ui->label_running && mouseEvent->button() == Qt::LeftButton && running != nullptr) {
             url_test_current();
             return true;
@@ -2731,11 +2771,13 @@ bool MainWindow::StopVPNProcess() {
 
 bool isNewer(QString assetName) {
     if (QString(NKR_VERSION).isEmpty()) return false;
+    if (assetName.length() < 8) return false; // must be at least "Throne-X"
     assetName = assetName.mid(7); // take out Throne-
     QString version;
     auto spl = assetName.split('-');
+    if (spl.size() < 1) return false;
     version += spl[0]; // version: 1.2.3
-    if (spl[1].contains("beta") || spl[1].contains("alpha") || spl[1].contains("rc")) version += "."+spl[1]; // .beta.13
+    if (spl.size() >= 2 && (spl[1].contains("beta") || spl[1].contains("alpha") || spl[1].contains("rc"))) version += "."+spl[1]; // .beta.13
     auto parts = version.split("."); // [1,2,3,beta,13]
     auto currentParts = QString(NKR_VERSION).replace("-", ".").split('.');
     if (parts.size() < 3 || currentParts.size() < 3)

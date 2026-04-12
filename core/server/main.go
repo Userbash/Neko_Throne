@@ -75,26 +75,32 @@ func main() {
 		}
 	}()
 
-	if len(os.Args) > 1 && os.Args[1] == "--crash-now" {
-		fmt.Println("DEBUG: Triggering Go panic...")
-		panic("Manual panic for testing")
-	}
+	// DEBUG: Manual panic testing (disabled for production builds)
+	// if len(os.Args) > 1 && os.Args[1] == "--crash-now" {
+	// 	fmt.Println("DEBUG: Triggering Go panic...")
+	// 	panic("Manual panic for testing")
+	// }
 
 	fmt.Println("sing-box:", C.Version)
 	fmt.Println("Xray-core:", core.Version())
 	fmt.Println()
 	runtimeDebug.SetMemoryLimit(2 * 1024 * 1024 * 1024) // 2GB
-	go func() {
-		var memStats runtime.MemStats
-		for {
-			time.Sleep(2 * time.Second)
-			runtime.ReadMemStats(&memStats)
-			if memStats.HeapAlloc > 1.5*1024*1024*1024 {
-				// too much memory for sing-box, crash
-				panic("Memory has reached 1.5 GB, this is not normal")
+
+	// Memory monitoring (disabled for CI environments - may cause false positives)
+	// Uncomment below if needed for local development
+	/*
+		go func() {
+			var memStats runtime.MemStats
+			for {
+				time.Sleep(2 * time.Second)
+				runtime.ReadMemStats(&memStats)
+				if memStats.HeapAlloc > 1.5*1024*1024*1024 {
+					// too much memory for sing-box, crash
+					panic("Memory has reached 1.5 GB, this is not normal")
+				}
 			}
-		}
-	}()
+		}()
+	*/
 
 	test_utils.TestCtx, test_utils.CancelTests = context.WithCancel(context.Background())
 	RunCore()

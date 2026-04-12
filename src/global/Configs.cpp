@@ -214,9 +214,17 @@ namespace Configs_ConfigItem {
 
         QFile file;
         file.setFileName(fn);
-        (void) file.open(QIODevice::ReadWrite | QIODevice::Truncate);
-        file.write(save_content);
+        if (!file.open(QIODevice::ReadWrite | QIODevice::Truncate)) {
+            qWarning() << "Failed to open config file for writing:" << fn << "-" << file.errorString();
+            return false;
+        }
+        qint64 written = file.write(save_content);
         file.close();
+
+        if (written != save_content.size()) {
+            qWarning() << "Failed to write complete config data to" << fn;
+            return false;
+        }
 
         return changed;
     }

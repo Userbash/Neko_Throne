@@ -147,8 +147,11 @@ namespace Configs_network {
         connect(_reply, &QNetworkReply::downloadProgress, _reply, [&](qint64 bytesReceived, qint64 bytesTotal)
         {
             runOnUiThread([=]{
-                GetMainWindow()->setDownloadReport(DownloadProgressReport{fileName, bytesReceived, bytesTotal}, true);
-                GetMainWindow()->UpdateDataView();
+                auto mw = GetMainWindow();
+                if (mw != nullptr) {
+                    mw->setDownloadReport(DownloadProgressReport{fileName, bytesReceived, bytesTotal}, true);
+                    mw->UpdateDataView();
+                }
             });
         });
         QEventLoop loop;
@@ -156,8 +159,11 @@ namespace Configs_network {
         loop.exec();
         runOnUiThread([=]
         {
-            GetMainWindow()->setDownloadReport({}, false);
-            GetMainWindow()->UpdateDataView(true);
+            auto mw = GetMainWindow();
+            if (mw != nullptr) {
+                mw->setDownloadReport({}, false);
+                mw->UpdateDataView(true);
+            }
         });
 
         // Read error and body BEFORE deleteLater to avoid use-after-free

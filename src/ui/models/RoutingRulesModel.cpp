@@ -111,10 +111,13 @@ bool RoutingRulesModel::dropMimeData(const QMimeData *data, Qt::DropAction actio
     std::sort(sourceRows.begin(), sourceRows.end(), std::greater<>());
 
     QList<RoutingRule> moved;
-    for (int r : sourceRows)
+    for (int r : sourceRows) {
+        if (r < 0 || r >= m_rules.size()) continue;
         moved.prepend(m_rules[r]);
+    }
 
     for (int r : sourceRows) {
+        if (r < 0 || r >= m_rules.size()) continue;
         beginRemoveRows({}, r, r);
         m_rules.removeAt(r);
         endRemoveRows();

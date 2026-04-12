@@ -141,7 +141,12 @@ namespace Configs_sys {
 
             // Replace old binary
             QFile::remove(destPath + ".bak");
-            QFile::rename(destPath, destPath + ".bak");
+            if (!QFile::rename(destPath, destPath + ".bak")) {
+                QMetaObject::invokeMethod(this, [cb] {
+                    cb(false, "Failed to backup Core binary");
+                });
+                return;
+            }
             if (!QFile::rename(tempPath, destPath)) {
                 QFile::rename(destPath + ".bak", destPath);
                 QMetaObject::invokeMethod(this, [cb] {

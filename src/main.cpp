@@ -23,7 +23,14 @@
 #include "include/sys/platform/SystemThemeWatcher.hpp"
 
 #include "include/ui/mainwindow_interface.h"
+
+// Optional: Valgrind support for local memory profiling (not available in CI/CD)
+#ifdef HAVE_VALGRIND
 #include <valgrind/valgrind.h>
+#else
+// Valgrind disabled - not available in CI/CD environments
+#define RUNNING_ON_VALGRIND 0
+#endif
 
 #ifdef Q_OS_WIN
 #include "include/sys/windows/MiniDump.h"
@@ -301,9 +308,15 @@ int main(int argc, char* argv[]) {
         }
     }
     if (!wd.exists()) wd.mkpath(wd.absolutePath());
-    if (!wd.exists("config")) wd.mkdir("config");
+    if (!wd.exists("config")) {
+        if (!wd.mkdir("config")) {
+            qWarning() << "Failed to create config directory";
+        }
+    }
     QDir::setCurrent(wd.absoluteFilePath("config"));
-    QDir("temp").removeRecursively(); 
+    if (!QDir("temp").removeRecursively()) {
+        qWarning() << "Failed to remove temp directory";
+    } 
 
 #ifdef Q_OS_LINUX
     QApplication::addLibraryPath(QApplication::applicationDirPath() + "/usr/plugins");
