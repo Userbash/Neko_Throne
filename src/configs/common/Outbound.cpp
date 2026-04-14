@@ -23,6 +23,7 @@ namespace Configs {
     bool outbound::ParseFromJson(const QJsonObject& object)
     {
         if (object.isEmpty()) return false;
+        if (object.contains("type")) type = object["type"].toString();
         if (object.contains("tag")) name = object["tag"].toString();
         if (object.contains("server")) server = object["server"].toString();
         if (object.contains("server_port")) server_port = object["server_port"].toInt();
@@ -55,6 +56,7 @@ namespace Configs {
     BuildResult outbound::Build()
     {
         QJsonObject object;
+        if (!type.isEmpty()) object["type"] = type;  // Added: type field to support invalid/base outbound objects
         if (!server.isEmpty()) object["server"] = server;
         if (server_port > 0) object["server_port"] = server_port;
         mergeJsonObjects(object, dialFields->Build().object);

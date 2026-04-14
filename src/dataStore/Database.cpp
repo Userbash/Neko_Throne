@@ -61,7 +61,11 @@ namespace Configs {
         auto needToCheckGroups = QSet<int>();
         for (auto id: groupsIdOrder) {
             auto ent = LoadGroup(QString("groups/%1.json").arg(id));
-            // Corrupted group?
+            // Corrupted group or failed to load?
+            if (ent == nullptr) {
+                qWarning() << "[Database] Failed to load group" << id << "- file may be corrupted";
+                continue;
+            }
             if (ent->id != id) {
                 continue;
             }
@@ -253,55 +257,76 @@ namespace Configs {
         if (type == "socks") {
             bean = new Configs::SocksHttpBean(Configs::SocksHttpBean::type_Socks5);
             outbound = new Configs::socks();
+            outbound->type = type;
         } else if (type == "http") {
             bean = new Configs::SocksHttpBean(Configs::SocksHttpBean::type_HTTP);
             outbound = new Configs::http();
+            outbound->type = type;
         } else if (type == "shadowsocks") {
             bean = new Configs::ShadowSocksBean();
             outbound = new Configs::shadowsocks();
+            outbound->type = type;
         } else if (type == "chain") {
             bean = new Configs::ChainBean();
             outbound = new Configs::chain();
+            outbound->type = type;
         } else if (type == "vmess") {
             bean = new Configs::VMessBean();
             outbound = new Configs::vmess();
+            outbound->type = type;
+        } else if (type == "xrayvmess") {
+            bean = new Configs::VMessBean();
+            outbound = new Configs::xrayVmess();
+            outbound->type = type;
         } else if (type == "trojan") {
             bean = new Configs::TrojanVLESSBean(Configs::TrojanVLESSBean::proxy_Trojan);
             outbound = new Configs::Trojan();
+            outbound->type = type;
         } else if (type == "vless") {
             bean = new Configs::TrojanVLESSBean(Configs::TrojanVLESSBean::proxy_VLESS);
             outbound = new Configs::vless();
+            outbound->type = type;
         } else if (type == "xrayvless") {
             bean = new Configs::TrojanVLESSBean(Configs::TrojanVLESSBean::proxy_VLESS);
             outbound = new Configs::xrayVless();
+            outbound->type = type;
         } else if (type == "hysteria" || type == "hysteria2") {
             bean = new Configs::QUICBean(type == "hysteria" ? Configs::QUICBean::proxy_Hysteria : Configs::QUICBean::proxy_Hysteria2);
             outbound = new Configs::hysteria();
+            outbound->type = type;
         } else if (type == "tuic") {
             bean = new Configs::QUICBean(Configs::QUICBean::proxy_TUIC);
             outbound = new Configs::tuic();
+            outbound->type = type;
         } else if (type == "anytls") {
             bean = new Configs::AnyTLSBean();
             outbound = new Configs::anyTLS();
+            outbound->type = type;
         } else if (type == "wireguard") {
             bean = new Configs::WireguardBean(Configs::WireguardBean());
             outbound = new Configs::wireguard();
+            outbound->type = type;
         } else if (type == "tailscale") {
             bean = new Configs::TailscaleBean(Configs::TailscaleBean());
             outbound = new Configs::tailscale();
+            outbound->type = type;
         } else if (type == "ssh") {
             bean = new Configs::SSHBean(Configs::SSHBean());
             outbound = new Configs::ssh();
+            outbound->type = type;
         } else if (type == "custom") {
             bean = new Configs::CustomBean();
             outbound = new Configs::Custom();
+            outbound->type = type;
         } else if (type == "extracore") {
             bean = new Configs::ExtraCoreBean();
             outbound = new Configs::extracore();
+            outbound->type = type;
         } else {
             bean = new Configs::AbstractBean(-114514);
             outbound = new Configs::outbound();
             outbound->invalid = true;
+            outbound->type = type;  // Added: set type for invalid outbound objects
         }
 
         auto ent = std::make_shared<ProxyEntity>(outbound, bean, type);
