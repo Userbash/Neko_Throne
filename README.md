@@ -8,6 +8,7 @@
 ## ✨ Recent Dev Highlights
 *   **Optimized Performance:** Build system tuned with `-O3` and `x86-64-v3` instruction sets for better execution speed on modern CPUs.
 *   **Enhanced Debugging:** Integrated UI event filtering to track user interactions in real-time, making it easier to diagnose interface issues.
+*   **Graph Stability Fix:** Resolved a critical segmentation fault in the traffic graph by implementing guarded pointers (`QPointer`) for UI components, preventing crashes during rapid data updates or layout changes.
 *   **Linux Hardening:** Improved path resolution for privileged operations (sudo/pkexec) and better support for Flatpak environments.
 *   **Refined Core Integration:** Better handling of core life-cycle states and improved logging for backend-frontend communication.
 

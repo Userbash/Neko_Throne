@@ -203,7 +203,9 @@ private:
     //
     int toolTipID;
     //
-    SpeedWidget *speedChartWidget;
+    #include <QPointer>
+    #include "3rdparty/qv2ray/v2/ui/widgets/speedchart/SpeedWidget.hpp"
+    QPointer<SpeedWidget> speedChartWidget;
     //
     // for data view
     QDateTime lastUpdated = QDateTime::currentDateTime();
