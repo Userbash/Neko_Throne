@@ -122,13 +122,14 @@ namespace Subscription {
             } else {
                 ent = data["type"].toString() == "hysteria2" ? Configs::ProfileManager::NewProxyEntity("hysteria") : Configs::ProfileManager::NewProxyEntity(data["type"].toString());
             }
-            if (ent->outbound->invalid) return;
+            if (ent == nullptr || ent->outbound->invalid) return;
             ent->outbound->ParseFromJson(data);
         }
 
         // Json
         if (str.startsWith('{')) {
             ent = Configs::ProfileManager::NewProxyEntity("custom");
+            if (ent == nullptr) return;
             auto custom = ent->Custom();
             auto obj = QString2QJsonObject(str);
             if (obj.contains("outbounds")) {
@@ -146,6 +147,7 @@ namespace Subscription {
         if (str.startsWith("socks5://") || str.startsWith("socks4://") ||
             str.startsWith("socks4a://") || str.startsWith("socks://")) {
             ent = Configs::ProfileManager::NewProxyEntity("socks");
+            if (ent == nullptr) return;
             auto ok = ent->Socks()->ParseFromLink(str);
             if (!ok) return;
         }
@@ -153,6 +155,7 @@ namespace Subscription {
         // HTTP
         if (str.startsWith("http://") || str.startsWith("https://")) {
             ent = Configs::ProfileManager::NewProxyEntity("http");
+            if (ent == nullptr) return;
             auto ok = ent->Http()->ParseFromLink(str);
             if (!ok) return;
         }
@@ -160,6 +163,7 @@ namespace Subscription {
         // ShadowSocks
         if (str.startsWith("ss://")) {
             ent = Configs::ProfileManager::NewProxyEntity("shadowsocks");
+            if (ent == nullptr) return;
             auto ok = ent->ShadowSocks()->ParseFromLink(str);
             if (!ok) return;
         }
@@ -167,6 +171,7 @@ namespace Subscription {
         // VMess
         if (str.startsWith("vmess://")) {
             ent = Configs::ProfileManager::NewProxyEntity("vmess");
+            if (ent == nullptr) return;
             auto ok = ent->VMess()->ParseFromLink(str);
             if (!ok) return;
         }
@@ -175,10 +180,12 @@ namespace Subscription {
         if (str.startsWith("vless://")) {
             if (Configs::useXrayVless(str)) {
                 ent = Configs::ProfileManager::NewProxyEntity("xrayvless");
+                if (ent == nullptr) return;
                 auto ok = ent->XrayVLESS()->ParseFromLink(str);
                 if (!ok) return;
             } else {
                 ent = Configs::ProfileManager::NewProxyEntity("vless");
+                if (ent == nullptr) return;
                 auto ok = ent->VLESS()->ParseFromLink(str);
                 if (!ok) return;
             }
@@ -187,6 +194,7 @@ namespace Subscription {
         // Trojan
         if (str.startsWith("trojan://")) {
             ent = Configs::ProfileManager::NewProxyEntity("trojan");
+            if (ent == nullptr) return;
             auto ok = ent->Trojan()->ParseFromLink(str);
             if (!ok) return;
         }
@@ -194,6 +202,7 @@ namespace Subscription {
         // AnyTLS
         if (str.startsWith("anytls://")) {
             ent = Configs::ProfileManager::NewProxyEntity("anytls");
+            if (ent == nullptr) return;
             auto ok = ent->AnyTLS()->ParseFromLink(str);
             if (!ok) return;
         }
@@ -201,6 +210,7 @@ namespace Subscription {
         // Hysteria
         if (str.startsWith("hysteria://") || str.startsWith("hysteria2://") || str.startsWith("hy2://")) {
             ent = Configs::ProfileManager::NewProxyEntity("hysteria");
+            if (ent == nullptr) return;
             auto ok = ent->Hysteria()->ParseFromLink(str);
             if (!ok) return;
         }
@@ -208,6 +218,7 @@ namespace Subscription {
         // TUIC
         if (str.startsWith("tuic://")) {
             ent = Configs::ProfileManager::NewProxyEntity("tuic");
+            if (ent == nullptr) return;
             auto ok = ent->TUIC()->ParseFromLink(str);
             if (!ok) return;
         }
@@ -215,6 +226,7 @@ namespace Subscription {
         // Wireguard
         if (str.startsWith("wg://")) {
             ent = Configs::ProfileManager::NewProxyEntity("wireguard");
+            if (ent == nullptr) return;
             auto ok = ent->Wireguard()->ParseFromLink(str);
             if (!ok) return;
         }
@@ -222,6 +234,7 @@ namespace Subscription {
         // SSH
         if (str.startsWith("ssh://")) {
             ent = Configs::ProfileManager::NewProxyEntity("ssh");
+            if (ent == nullptr) return;
             auto ok = ent->SSH()->ParseFromLink(str);
             if (!ok) return;
         }
@@ -414,6 +427,7 @@ namespace Subscription {
     void RawUpdater::updateWireguardFileConfig(const QString& str)
     {
         auto ent = Configs::ProfileManager::NewProxyEntity("wireguard");
+        if (ent == nullptr) return;
         auto ok = ent->Wireguard()->ParseFromLink(str);
         if (!ok) return;
         updated_order += ent;
@@ -433,6 +447,7 @@ namespace Subscription {
             }
 
             auto ent = Configs::ProfileManager::NewProxyEntity("shadowsocks");
+            if (ent == nullptr) continue;
             auto ok = ent->ShadowSocks()->ParseFromSIP008(out);
             if (!ok) continue;
             updated_order += ent;

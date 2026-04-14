@@ -22,6 +22,7 @@ class TranslationManager : public QObject {
 
 public:
     static TranslationManager *instance();
+    static void destroy();
 
     // Scan lang/ directory and populate available languages.
     // Call once at startup after QApplication is created.

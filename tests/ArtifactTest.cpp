@@ -56,7 +56,7 @@ private slots:
         QProcess ldd;
         ldd.start("ldd", {guiPath});
         QVERIFY(ldd.waitForFinished());
-        QString output = ldd.readAllStandardError() + ldd.readAllStandardOutput();
+        QString output = QString::fromLocal8Bit(ldd.readAllStandardError() + ldd.readAllStandardOutput());
         QVERIFY2(!output.contains("not found"), qPrintable(QString("Missing libraries:\n%1").arg(output)));
 #endif
     }

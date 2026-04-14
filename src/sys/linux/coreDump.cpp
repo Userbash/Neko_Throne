@@ -33,7 +33,14 @@ static void posix_crash_handler(int sig) {
     backtrace_symbols_fd(array, size, STDERR_FILENO);
     fprintf(stderr, "----------------------------------\n");
 
-    _exit(1); // Use _exit to avoid cleanup handlers that might crash again
+    // Check if core dump is explicitly enabled
+    const char* allow_core_dump = getenv("THRONE_ALLOW_CORE_DUMP");
+    if (allow_core_dump != nullptr && allow_core_dump[0] != '\0') {
+        signal(sig, SIG_DFL);
+        raise(sig);
+    } else {
+        _exit(1);
+    }
 }
 
 void setup_crash_handlers() {

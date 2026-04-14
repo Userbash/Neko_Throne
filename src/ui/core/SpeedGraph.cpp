@@ -131,7 +131,8 @@ void SpeedGraph::drawGraph(QPainter &p, const QRectF &area, bool isUpload) {
     if (maxVal <= 0) maxVal = 1024;
 
     // How many points to draw? Use visible width, at most m_count.
-    const int visiblePoints = std::min(static_cast<std::size_t>(area.width()), m_count);
+    // Ensure at least 2 visible points to avoid division by zero in xStep calculation
+    const int visiblePoints = std::max(2, static_cast<int>(std::min(static_cast<std::size_t>(area.width()), m_count)));
     const std::size_t startIdx = m_count - visiblePoints;
     const qreal xStep = area.width() / static_cast<qreal>(visiblePoints - 1);
 

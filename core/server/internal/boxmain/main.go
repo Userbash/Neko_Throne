@@ -40,13 +40,29 @@ func init() {
 func preRun(cmd *cobra.Command, args []string) {
 	globalCtx = context.Background()
 	sudoUser := os.Getenv("SUDO_USER")
-	sudoUID, _ := strconv.Atoi(os.Getenv("SUDO_UID"))
-	sudoGID, _ := strconv.Atoi(os.Getenv("SUDO_GID"))
+
+	sudoUID := 0
+	sudoGID := 0
+	if sudoUIDStr := os.Getenv("SUDO_UID"); sudoUIDStr != "" {
+		if uid, err := strconv.Atoi(sudoUIDStr); err == nil {
+			sudoUID = uid
+		}
+	}
+	if sudoGIDStr := os.Getenv("SUDO_GID"); sudoGIDStr != "" {
+		if gid, err := strconv.Atoi(sudoGIDStr); err == nil {
+			sudoGID = gid
+		}
+	}
+
 	if sudoUID == 0 && sudoGID == 0 && sudoUser != "" {
-		sudoUserObject, _ := user.Lookup(sudoUser)
-		if sudoUserObject != nil {
-			sudoUID, _ = strconv.Atoi(sudoUserObject.Uid)
-			sudoGID, _ = strconv.Atoi(sudoUserObject.Gid)
+		sudoUserObject, err := user.Lookup(sudoUser)
+		if err == nil && sudoUserObject != nil {
+			if uid, err := strconv.Atoi(sudoUserObject.Uid); err == nil {
+				sudoUID = uid
+			}
+			if gid, err := strconv.Atoi(sudoUserObject.Gid); err == nil {
+				sudoGID = gid
+			}
 		}
 	}
 	if sudoUID > 0 && sudoGID > 0 {

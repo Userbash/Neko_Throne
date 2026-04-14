@@ -89,13 +89,17 @@ namespace Stats {
                     looping = false;
                     runOnUiThread([=] {
                         auto m = GetMainWindow();
-                        m->refresh_status("STOP");
+                        if (m != nullptr) {
+                            m->refresh_status("STOP");
+                        }
                     });
                 }
                 runOnUiThread([=]
                 {
                    auto m = GetMainWindow();
-                   m->update_traffic_graph(0, 0, 0, 0);
+                   if (m != nullptr) {
+                       m->update_traffic_graph(0, 0, 0, 0);
+                   }
                 });
                 continue;
             } else {
@@ -115,6 +119,8 @@ namespace Stats {
             // post to UI
             runOnUiThread([=,this] {
                 auto m = GetMainWindow();
+                if (m == nullptr) return;
+
                 if (proxy != nullptr) {
                     m->refresh_status(QObject::tr("Proxy: %1\nDirect: %2").arg(proxy->DisplaySpeed(), direct->DisplaySpeed()));
                     m->update_traffic_graph(proxy->downlink_rate, proxy->uplink_rate, direct->downlink_rate, direct->uplink_rate);

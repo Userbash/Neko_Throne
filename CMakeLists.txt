@@ -11,6 +11,21 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# ─── Compiler & Optimization (No LTO, No PGO, GCC only) ──────────────────────────
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    message(STATUS "[Throne] Configuring GCC-specific performance flags (No LTO, No PGO, O2)...")
+
+    # Generic x86-64 target (More compatible)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -march=x86-64 -fno-plt -fno-semantic-interposition")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2 -march=x86-64 -fno-plt")
+
+    # Disable LTO & PGO explicitly
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION OFF)
+    add_compile_options(-fno-lto)
+    add_link_options(-fno-lto)
+endif()
+
 if(MSVC)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()

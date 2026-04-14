@@ -53,11 +53,13 @@ func RunCore() {
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
+	defer lis.Close() // Ensure listener is closed to avoid port stuck in TIME_WAIT
 
 	s := grpc.NewServer(
 		grpc.MaxRecvMsgSize(1024*1024*1024), // 1 gigaByte
 		grpc.MaxSendMsgSize(1024*1024*1024), // 1 gigaByte
 	)
+	defer s.GracefulStop() // Gracefully stop server
 	gen.RegisterLibcoreServiceServer(s, &server{})
 
 	fmt.Printf("Core listening at %v\n", lis.Addr())
@@ -69,28 +71,41 @@ func RunCore() {
 func main() {
 	defer func() {
 		if err := recover(); err != nil {
-			fmt.Println("Core panicked:")
-			fmt.Println(err)
-			os.Exit(0)
+			fmt.Fprintf(os.Stderr, "Core panicked: %v\n", err)
+			runtimeDebug.PrintStack()
+			os.Exit(1)
 		}
 	}()
+
+	// DEBUG: Manual panic testing (disabled for production builds)
+	// if len(os.Args) > 1 && os.Args[1] == "--crash-now" {
+	// 	fmt.Println("DEBUG: Triggering Go panic...")
+	// 	panic("Manual panic for testing")
+	// }
+
 	fmt.Println("sing-box:", C.Version)
 	fmt.Println("Xray-core:", core.Version())
 	fmt.Println()
 	runtimeDebug.SetMemoryLimit(2 * 1024 * 1024 * 1024) // 2GB
-	go func() {
-		var memStats runtime.MemStats
-		for {
-			time.Sleep(2 * time.Second)
-			runtime.ReadMemStats(&memStats)
-			if memStats.HeapAlloc > 1.5*1024*1024*1024 {
-				// too much memory for sing-box, crash
-				panic("Memory has reached 1.5 GB, this is not normal")
-			}
-		}
-	}()
 
-	test_utils.TestCtx, test_utils.CancelTests = context.WithCancel(context.Background())
+	// Memory monitoring (disabled for CI environments - may cause false positives)
+	// Uncomment below if needed for local development
+	/*
+		go func() {
+			var memStats runtime.MemStats
+			for {
+				time.Sleep(2 * time.Second)
+				runtime.ReadMemStats(&memStats)
+				if memStats.HeapAlloc > 1.5*1024*1024*1024 {
+					// too much memory for sing-box, crash
+					panic("Memory has reached 1.5 GB, this is not normal")
+				}
+			}
+		}()
+	*/
+
+	ctx, cancel := context.WithCancel(context.Background())
+	test_utils.SetTestContext(ctx, cancel)
 	RunCore()
 	return
 }

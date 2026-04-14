@@ -198,7 +198,7 @@ jobs:
 
   # ─── Сборка (Go + C++ в одном задании) ────────────────────────────────────
   build:
-    name: "${{ matrix.os_label }}"
+    name: "🏗️ Build ${{ matrix.os_label }}"
     permissions: { contents: read }
     strategy:
       fail-fast: false
@@ -236,27 +236,47 @@ jobs:
           GOOS: ${{ matrix.cross_os }}
           GOARCH: ${{ matrix.cross_arch }}
         run: |
+          set -e
+          echo ">> Go build for $GOOS/$GOARCH"
+
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             PROTOC_VER="31.1"
-            curl -fLO --retry 3 "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VER}/protoc-${PROTOC_VER}-win64.zip"
-            unzip "protoc-${PROTOC_VER}-win64.zip" -d protoc_install
+            echo ">> Downloading protoc v${PROTOC_VER}..."
+            curl -fLO --retry 5 "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VER}/protoc-${PROTOC_VER}-win64.zip" || { echo "PROTOC DOWNLOAD FAILED"; exit 1; }
+            unzip -q "protoc-${PROTOC_VER}-win64.zip" -d protoc_install
             export PATH="$PWD/protoc_install/bin:$PATH"
             echo "$PWD/protoc_install/bin" >> "$GITHUB_PATH"
           else
-            ./scripts/ci/setup_go.sh
+            echo ">> Setting up Go environment..."
+            ./scripts/ci/setup_go.sh || { echo "GO SETUP FAILED"; exit 1; }
           fi
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-          ./scripts/ci/build_go.sh
-          tar czf go-artifacts.tgz ./deployment
+
+          echo ">> Installing protoc plugins..."
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest || { echo "PROTOC-GEN-GO INSTALL FAILED"; exit 1; }
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest || { echo "PROTOC-GEN-GO-GRPC INSTALL FAILED"; exit 1; }
+
+          echo ">> Building Go backend..."
+          ./scripts/ci/build_go.sh || { echo "GO BUILD FAILED"; exit 1; }
+
+          echo ">> Creating Go artifacts archive..."
+          tar czf go-artifacts.tgz ./deployment || { echo "ARTIFACT COMPRESSION FAILED"; exit 1; }
+          echo "✅ Go build completed successfully"
 
       - name: 📂 Распаковка Go артефактов
         shell: bash
         run: |
-          tar xzf go-artifacts.tgz
-          ART="download-artifact/NekoThrone-go-${{ matrix.cross_os }}-${{ matrix.cross_arch }}"
-          mkdir -p "$ART"
-          cp go-artifacts.tgz "$ART/artifacts.tgz"
+          echo ">> Extracting Go artifacts..."
+          if [[ -f go-artifacts.tgz ]]; then
+            tar xzf go-artifacts.tgz || { echo "EXTRACTION FAILED"; exit 1; }
+            ART="download-artifact/NekoThrone-go-${{ matrix.cross_os }}-${{ matrix.cross_arch }}"
+            mkdir -p "$ART"
+            cp go-artifacts.tgz "$ART/artifacts.tgz"
+            echo "✅ Artifacts extracted successfully"
+          else
+            echo "ERROR: go-artifacts.tgz not found!"
+            ls -la .
+            exit 1
+          fi
 
       # ── C++ инструментарий ─────────────────────────────────────────────
       - name: ⚙️ Установка MSVC
@@ -391,7 +411,14 @@ jobs:
         shell: bash
         run: |
           mkdir -p build && cd build
-          curl -fLso srslist.h "https://raw.githubusercontent.com/throneproj/routeprofiles/rule-set/srslist.h"
+
+          # Download route profiles with retry logic
+          echo ">> Downloading rule profiles..."
+          curl -fLso srslist.h --retry 5 --retry-delay 2 --retry-max-time 60 \
+            "https://raw.githubusercontent.com/throneproj/routeprofiles/rule-set/srslist.h" || {
+            echo "WARNING: Failed to download srslist.h, continuing without it..."
+            touch srslist.h
+          }
 
           CMAKE_ARGS=(
             -GNinja
@@ -413,15 +440,21 @@ jobs:
             CMAKE_ARGS+=(-DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++")
           fi
 
-          cmake "${CMAKE_ARGS[@]}" ..
-          ninja -j$(nproc 2>/dev/null || echo 4)
+          echo ">> Configuring CMake..."
+          cmake "${CMAKE_ARGS[@]}" .. || { echo "CMAKE CONFIGURATION FAILED"; exit 1; }
+
+          echo ">> Building with Ninja..."
+          ninja -j$(nproc 2>/dev/null || echo 4) || { echo "BUILD FAILED"; exit 1; }
           cd ..
 
+          echo ">> Running deployment script..."
           if [[ "${{ matrix.os_label }}" == "windows" ]]; then
-            ./script/deploy_windows.sh
+            ./script/deploy_windows.sh || { echo "WINDOWS DEPLOYMENT FAILED"; exit 1; }
           else
-            ./script/deploy_linux64.sh
+            ./script/deploy_linux64.sh || { echo "LINUX DEPLOYMENT FAILED"; exit 1; }
           fi
+
+          echo "✅ Build completed successfully"
 
       - name: 📊 Статистика ccache
         if: always()

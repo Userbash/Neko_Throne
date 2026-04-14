@@ -33,7 +33,7 @@ Neko Throne follows a classic Client-Server (Frontend-Backend) architecture:
 
 ### 2. Performance
 *   **Asynchronous Operations:** All blocking tasks (IO, process spawning, network requests) are performed on background threads using `QtConcurrent` or custom `QThread` pools.
-*   **Optimized Compilation:** Uses `ccache` for faster incremental builds and specific compiler flags (`-O0 -g` for debug, `-O3` for release).
+*   **Optimized Compilation:** Uses `ccache` for faster incremental builds and specific compiler flags (`-O0 -g` for debug, `-O2` for release).
 
 ### 3. Portability
 *   **Linux Integration:** Supports both Wayland and X11 via Qt abstraction. Handles SUID bits for TUN interface support.

@@ -30,7 +30,7 @@
 #include "include/ui/profile/edit_xrayvless.h"
 
 #define ADJUST_SIZE runOnThread([=,this] { adjustSize(); adjustPosition(mainwindow); }, this);
-#define LOAD_TYPE(a) ui->type->addItem(Configs::ProfileManager::NewProxyEntity(a)->outbound->DisplayType(), a);
+#define LOAD_TYPE(a) do { auto ent = Configs::ProfileManager::NewProxyEntity(a); if (ent && ent->outbound) ui->type->addItem(ent->outbound->DisplayType(), a); } while(0)
 
 void DialogEditProfile::toggleSingboxWidgets(bool show) {
     ui->stream_box->setVisible(show);

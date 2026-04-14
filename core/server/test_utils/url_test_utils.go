@@ -4,6 +4,7 @@ import (
 	"ThroneCore/internal/boxbox"
 	"context"
 	"errors"
+	"fmt"
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing/common/metadata"
 	"github.com/sagernet/sing/service"
@@ -68,9 +69,29 @@ func BatchURLTest(ctx context.Context, i *boxbox.Box, outboundTags []string, url
 			limiter <- struct{}{}
 			go func(t string) {
 				defer wg.Done()
+				defer func() {
+					if r := recover(); r != nil {
+						resAccess.Lock()
+						resMap[t] = &URLTestResult{
+							Duration: 0,
+							Tag:      t,
+							Error:    fmt.Errorf("panic during url test: %v", r),
+						}
+						resAccess.Unlock()
+					}
+					<-limiter
+				}()
+
 				outbound, found := outbounds.Outbound(t)
 				if !found {
-					panic("no outbound with tag " + t + " found")
+					resAccess.Lock()
+					resMap[t] = &URLTestResult{
+						Duration: 0,
+						Tag:      t,
+						Error:    errors.New("no outbound with tag " + t + " found"),
+					}
+					resAccess.Unlock()
+					return
 				}
 				client := &http.Client{
 					Transport: &http.Transport{
@@ -94,7 +115,6 @@ func BatchURLTest(ctx context.Context, i *boxbox.Box, outboundTags []string, url
 				resMap[t] = u
 				URLReporter.AddResult(u)
 				resAccess.Unlock()
-				<-limiter
 			}(tag)
 		}
 	}

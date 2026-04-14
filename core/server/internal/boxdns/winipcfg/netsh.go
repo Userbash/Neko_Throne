@@ -22,6 +22,31 @@ import (
 	"golang.org/x/sys/windows/registry"
 )
 
+// sanitizeRegistryPath validates path to prevent registry traversal attacks
+func sanitizeRegistryPath(path string) string {
+	// Удаляем опасные последовательности
+	if strings.Contains(path, "..") {
+		return ""
+	}
+	// Проверяем на нулевые байты
+	if strings.Contains(path, "\x00") {
+		return ""
+	}
+	// Проверяем что путь содержит только разрешённые символы
+	for _, ch := range path {
+		if ch < 32 || ch > 126 {
+			if ch != ' ' { // пробел разрешён
+				return ""
+			}
+		}
+	}
+	// Максимальная длина имени раздела в реестре - 255 символов
+	if len(path) > 255 {
+		return ""
+	}
+	return path
+}
+
 func runNetsh(cmds []string) error {
 	system32, err := windows.GetSystemDirectory()
 	if err != nil {
@@ -101,7 +126,19 @@ func (luid LUID) fallbackSetDNSDomain(domain string) error {
 	if len(paths) == 0 {
 		return errors.New("No TCP/IP interfaces found on adapter")
 	}
-	key, err = registry.OpenKey(registry.LOCAL_MACHINE, fmt.Sprintf("SYSTEM\\CurrentControlSet\\Services\\%s", paths[0]), registry.SET_VALUE)
+
+	// SECURITY FIX: Validate registry path to prevent traversal attacks
+	ipConfigPath := sanitizeRegistryPath(paths[0])
+	if ipConfigPath == "" {
+		return errors.New("Invalid IpConfig path in registry")
+	}
+
+	// Additional check for dangerous characters
+	if strings.ContainsAny(ipConfigPath, "..\\") {
+		return errors.New("Invalid characters in registry path")
+	}
+
+	key, err = registry.OpenKey(registry.LOCAL_MACHINE, fmt.Sprintf("SYSTEM\\CurrentControlSet\\Services\\%s", ipConfigPath), registry.SET_VALUE)
 	if err != nil {
 		return fmt.Errorf("Unable to open TCP/IP network registry key: %w", err)
 	}

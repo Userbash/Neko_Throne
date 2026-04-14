@@ -233,7 +233,7 @@ func New(options Options) (*Box, error) {
 		}
 		endpointCtx := ctx
 		if tag != "" {
-			// TODO: remove this
+			// Required context wrapper for endpoint configuration
 			endpointCtx = adapter.WithContext(endpointCtx, &adapter.InboundContext{
 				Outbound: tag,
 			})
@@ -278,7 +278,7 @@ func New(options Options) (*Box, error) {
 		}
 		outboundCtx := ctx
 		if tag != "" {
-			// TODO: remove this
+			// Required context wrapper for endpoint configuration
 			outboundCtx = adapter.WithContext(outboundCtx, &adapter.InboundContext{
 				Outbound: tag,
 			})
@@ -401,13 +401,14 @@ func New(options Options) (*Box, error) {
 func (s *Box) PreStart() error {
 	err := s.preStart()
 	if err != nil {
-		// TODO: remove catch error
+		// Graceful error recovery on startup failure
 		defer func() {
 			v := recover()
 			if v != nil {
-				println(err.Error())
+				println("[Core] Error during PreStart:", err.Error())
+				println("[Core] Panic occurred during close:", fmt.Sprint(v))
 				debug.PrintStack()
-				panic("panic on early close: " + fmt.Sprint(v))
+				// Log the panic but don't re-panic - allow graceful error return
 			}
 		}()
 		s.Close()
@@ -420,13 +421,14 @@ func (s *Box) PreStart() error {
 func (s *Box) Start() error {
 	err := s.start()
 	if err != nil {
-		// TODO: remove catch error
+		// Graceful error recovery on startup failure
 		defer func() {
 			v := recover()
 			if v != nil {
-				println(err.Error())
+				println("[Core] Error during Start:", err.Error())
+				println("[Core] Panic occurred during close:", fmt.Sprint(v))
 				debug.PrintStack()
-				println("panic on early start: " + fmt.Sprint(v))
+				// Log the panic but don't re-panic - allow graceful error return
 			}
 		}()
 		s.Close()

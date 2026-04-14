@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat)",
+      "Read(//tmp/**)",
+      "Bash(go build:*)",
+      "Bash(go list:*)",
+      "Bash(go vet:*)",
+      "Bash(tee /tmp/build_output.txt)",
+      "Bash(find . -name \"*.go\" -type f ! -path \"./gen/*\" -exec grep -l \"return\" {} \\\\;)",
+      "Bash(go mod:*)",
+      "Bash(grep -rn \"defer.*cancel\\\\|defer.*Stop\\\\|defer.*Close\" /var/home/sanya/Neko_Throne/core/server/*.go /var/home/sanya/Neko_Throne/core/server/internal/**/*.go)",
+      "Bash(grep -rn \"signal.Notify\" /var/home/sanya/Neko_Throne/core/server/*.go /var/home/sanya/Neko_Throne/core/server/internal/**/*.go)",
+      "Bash(grep -rn \"\\\\.Serve\\\\|\\\\.Accept\\\\|\\\\.Listen\" /var/home/sanya/Neko_Throne/core/server/*.go /var/home/sanya/Neko_Throne/core/server/internal/**/*.go)",
+      "Bash(grep -A1 \"^[0-9]*:.*return$\")",
+      "Bash(grep -E \"\\\\.go$|server|main\")",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)"
+    ]
+  }
+}

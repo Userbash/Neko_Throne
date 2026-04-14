@@ -29,9 +29,10 @@ namespace Stats
 
             if (suspend || !Configs::dataStore->enable_stats) continue;
 
-            mu.lock();
-            update();
-            mu.unlock();
+            {
+                QMutexLocker locker(&mu);
+                update();
+            }
         }
     }
 
@@ -80,7 +81,9 @@ namespace Stats
         {
             runOnUiThread([=,this] {
                 auto m = GetMainWindow();
-                m->UpdateConnectionList(toUpdate, toAdd);
+                if (m != nullptr) {
+                    m->UpdateConnectionList(toUpdate, toAdd);
+                }
             });
         } else
         {
@@ -126,7 +129,9 @@ namespace Stats
             }
             runOnUiThread([=,this] {
                 auto m = GetMainWindow();
-                m->UpdateConnectionListWithRecreate(sorted);
+                if (m != nullptr) {
+                    m->UpdateConnectionListWithRecreate(sorted);
+                }
             });
         }
     }

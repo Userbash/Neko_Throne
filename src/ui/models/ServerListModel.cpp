@@ -112,11 +112,13 @@ bool ServerListModel::dropMimeData(const QMimeData *data, Qt::DropAction action,
 
     QList<ServerEntry> movedEntries;
     for (int r : sourceRows) {
+        if (r < 0 || r >= m_entries.size()) continue;
         movedEntries.prepend(m_entries[r]);
     }
 
     // Remove from model
     for (int r : sourceRows) {
+        if (r < 0 || r >= m_entries.size()) continue;
         beginRemoveRows({}, r, r);
         m_entries.removeAt(r);
         endRemoveRows();

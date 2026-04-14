@@ -49,6 +49,8 @@ func (s *SpeedTestResultQuerier) storeResult(result *SpeedTestResult) {
 }
 
 func (s *SpeedTestResultQuerier) setIsRunning(isRunning bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.isRunning = isRunning
 }
 
@@ -102,7 +104,12 @@ func BatchSpeedTest(ctx context.Context, i *boxbox.Box, outboundTags []string, t
 		}
 		outbound, exists := outbounds.Outbound(tag)
 		if !exists {
-			panic("no outbound with tag " + tag + " found")
+			resErr := &SpeedTestResult{
+				Tag:   tag,
+				Error: errors.New("no outbound with tag " + tag + " found"),
+			}
+			results = append(results, resErr)
+			continue
 		}
 		res := new(SpeedTestResult)
 		res.Tag = tag
@@ -113,12 +120,18 @@ func BatchSpeedTest(ctx context.Context, i *boxbox.Box, outboundTags []string, t
 			queuer <- struct{}{}
 			wg.Add(1)
 			go func(res *SpeedTestResult, outbound adapter.Outbound) {
-				defer func() { <-queuer }()
+				defer func() {
+					if r := recover(); r != nil {
+						res.Error = fmt.Errorf("panic during country test: %v", r)
+						fmt.Println("Panic in countryTest:", r)
+					}
+					<-queuer
+				}()
 				defer wg.Done()
-				err := countryTest(ctx, getNetDialer(outbound.DialContext), res)
-				if err != nil && !errors.Is(err, context.Canceled) {
-					res.Error = err
-					fmt.Println("Failed to countryTest with err:", err)
+				testErr := countryTest(ctx, getNetDialer(outbound.DialContext), res)
+				if testErr != nil && !errors.Is(testErr, context.Canceled) {
+					res.Error = testErr
+					fmt.Println("Failed to countryTest with err:", testErr)
 				}
 				CountryResults.AddResult(res)
 			}(res, outbound)

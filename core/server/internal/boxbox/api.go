@@ -7,23 +7,26 @@ import (
 	"time"
 )
 
-func (s *Box) CloseWithTimeout(cancal context.CancelFunc, d time.Duration, logFunc func(v ...any), block bool) {
+func (s *Box) CloseWithTimeout(cancel context.CancelFunc, d time.Duration, logFunc func(v ...any), block bool) {
 	start := time.Now()
 	t := time.NewTimer(d)
 	done := make(chan struct{})
+	defer func() {
+		// Ensure timer is stopped and drained to prevent resource leak
+		if !t.Stop() {
+			<-t.C // Drain the timer channel if it already fired
+		}
+	}()
 
 	printCloseTime := func() {
 		logFunc("[Info] sing-box closed in", fmt.Sprintf("%d ms", time.Since(start).Milliseconds()))
 	}
 
-	go func(cancel context.CancelFunc, closer io.Closer) {
-		cancel()
+	go func(cancelFunc context.CancelFunc, closer io.Closer) {
+		cancelFunc()
 		closer.Close()
 		close(done)
-		if !t.Stop() {
-			printCloseTime()
-		}
-	}(cancal, s)
+	}(cancel, s)
 
 	select {
 	case <-t.C:

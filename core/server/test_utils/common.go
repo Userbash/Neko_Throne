@@ -6,11 +6,13 @@ import (
 	"github.com/Mahdi-zarei/speedtest-go/speedtest"
 	"github.com/sagernet/sing/common/metadata"
 	"net"
+	"sync"
 	"time"
 )
 
 var TestCtx context.Context
 var CancelTests context.CancelFunc
+var testCtxMu sync.RWMutex
 
 const FetchServersTimeout = 8 * time.Second
 const MaxConcurrentTests = 100
@@ -19,6 +21,21 @@ func getNetDialer(dialer func(ctx context.Context, network string, destination m
 	return func(ctx context.Context, network string, address string) (net.Conn, error) {
 		return dialer(ctx, network, metadata.ParseSocksaddr(address))
 	}
+}
+
+// SetTestContext safely sets the test context and cancel function
+func SetTestContext(ctx context.Context, cancel context.CancelFunc) {
+	testCtxMu.Lock()
+	defer testCtxMu.Unlock()
+	TestCtx = ctx
+	CancelTests = cancel
+}
+
+// GetTestContext safely retrieves the test context and cancel function
+func GetTestContext() (context.Context, context.CancelFunc) {
+	testCtxMu.RLock()
+	defer testCtxMu.RUnlock()
+	return TestCtx, CancelTests
 }
 
 func getSpeedtestServer(ctx context.Context, dialer func(ctx context.Context, network string, address string) (net.Conn, error)) (*speedtest.Server, error) {

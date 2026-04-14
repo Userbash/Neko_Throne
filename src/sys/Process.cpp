@@ -74,7 +74,6 @@ namespace Configs_sys {
                     && m_state != CoreLifecycleState::Stopping) {
                     m_state = CoreLifecycleState::Stopped;
                 }
-                qDebug() << "Core state changed to not running";
             }
 
             if (!Configs::dataStore->prepare_exit && state == NotRunning) {

@@ -129,13 +129,11 @@ namespace Configs {
             auto bean = dynamic_cast<Configs::ChainBean*>(ent->_bean.get());
             if (bean == nullptr)
             {
-                qDebug() << "Broken state in migrate for chain";
                 return;
             }
             auto chain = ent->Chain();
             if (chain == nullptr)
             {
-                qDebug() << "Invalid state in migrate for chain";
                 return;
             }
             chain->name = bean->name;
@@ -145,13 +143,11 @@ namespace Configs {
             auto bean = dynamic_cast<Configs::CustomBean*>(ent->_bean.get());
             if (bean == nullptr)
             {
-                qDebug() << "Broken state in migrate for custom";
                 return;
             }
             auto custom = ent->Custom();
             if (custom == nullptr)
             {
-                qDebug() << "Invalid state in migrate for custom";
                 return;
             }
             custom->name = bean->name;
@@ -162,13 +158,11 @@ namespace Configs {
             auto bean = dynamic_cast<Configs::ExtraCoreBean*>(ent->_bean.get());
             if (bean == nullptr)
             {
-                qDebug() << "Broken state in migrate for extracore";
                 return;
             }
             auto extraCore = ent->ExtraCore();
             if (extraCore == nullptr)
             {
-                qDebug() << "Invalid state in migrate for extracore";
                 return;
             }
             extraCore->name = bean->name;

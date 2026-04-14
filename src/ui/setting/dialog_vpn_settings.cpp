@@ -75,6 +75,9 @@ void DialogVPNSettings::on_troubleshooting_clicked() {
 
     auto r = msg.exec() - 2;
     if (r == 0) {
-        GetMainWindow()->StopVPNProcess();
+        auto mw = GetMainWindow();
+        if (mw != nullptr) {
+            mw->StopVPNProcess();
+        }
     }
 }

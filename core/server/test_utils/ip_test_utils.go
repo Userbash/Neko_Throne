@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing/common/metadata"
 	"github.com/sagernet/sing/service"
@@ -75,9 +76,25 @@ func BatchIPTest(ctx context.Context, i *boxbox.Box, outboundTags []string, maxC
 			limiter <- struct{}{}
 			go func(t string) {
 				defer wg.Done()
+				defer func() {
+					if r := recover(); r != nil {
+						resAccess.Lock()
+						resMap[t] = &IPTestResult{
+							Error: fmt.Errorf("panic during ip test: %v", r),
+						}
+						resAccess.Unlock()
+					}
+					<-limiter
+				}()
+
 				outbound, found := outbounds.Outbound(t)
 				if !found {
-					panic("no outbound with tag " + t + " found")
+					resAccess.Lock()
+					resMap[t] = &IPTestResult{
+						Error: errors.New("no outbound with tag " + t + " found"),
+					}
+					resAccess.Unlock()
+					return
 				}
 				client := &http.Client{
 					Transport: &http.Transport{
@@ -97,7 +114,6 @@ func BatchIPTest(ctx context.Context, i *boxbox.Box, outboundTags []string, maxC
 				resMap[t] = u
 				IPReporter.AddResult(u)
 				resAccess.Unlock()
-				<-limiter
 			}(tag)
 		}
 	}

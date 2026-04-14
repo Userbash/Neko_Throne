@@ -11,10 +11,18 @@
 #include <QWidget>
 #include <QWindow>
 
-// Static singleton
+static TranslationManager *s_instance = nullptr;
+
 TranslationManager *TranslationManager::instance() {
-    static TranslationManager s_instance;
-    return &s_instance;
+    if (!s_instance) {
+        s_instance = new TranslationManager();
+    }
+    return s_instance;
+}
+
+void TranslationManager::destroy() {
+    delete s_instance;
+    s_instance = nullptr;
 }
 
 TranslationManager::TranslationManager(QObject *parent)

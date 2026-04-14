@@ -15,7 +15,10 @@ DialogHotkey::DialogHotkey(QWidget *parent, const QList<QAction*>& actions) : QD
 
     generateShortcutItems(actions);
 
-    GetMainWindow()->RegisterHotkey(true);
+    auto mw = GetMainWindow();
+    if (mw != nullptr) {
+        mw->RegisterHotkey(true);
+    }
 }
 
 void DialogHotkey::generateShortcutItems(const QList<QAction*>& actions)
@@ -50,13 +53,19 @@ void DialogHotkey::accept()
 
     Configs::dataStore->Save();
     MW_dialog_message(Dialog_DialogManageHotkeys, "UpdateShortcuts");
-    GetMainWindow()->RegisterHotkey(false);
+    auto mw = GetMainWindow();
+    if (mw != nullptr) {
+        mw->RegisterHotkey(false);
+    }
     QDialog::accept();
 }
 
 void DialogHotkey::reject()
 {
-    GetMainWindow()->RegisterHotkey(false);
+    auto mw = GetMainWindow();
+    if (mw != nullptr) {
+        mw->RegisterHotkey(false);
+    }
     QDialog::reject();
 }
 

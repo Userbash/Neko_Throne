@@ -88,7 +88,6 @@ namespace Configs {
         if (object.contains("fingerprint")) fingerprint = object["fingerprint"].toString();
         if (object.contains("password")) password = object["password"].toString();
         if (object.contains("shortId")) shortId = object["shortId"].toString();
-        if (object.contains("shortId")) shortId = object["shortId"].toString();
         if (object.contains("spiderX")) spiderX = object["spiderX"].toString();
         return true;
     }
@@ -299,8 +298,10 @@ namespace Configs {
             path = object["path"].toString();
             if (path.contains("?ed=")) {
                 auto spl = path.split("?ed=");
-                path = spl[0];
-                ed = spl[1].toInt();
+                if (spl.size() >= 2) {
+                    path = spl[0];
+                    ed = spl[1].toInt();
+                }
             }
         }
         if (object.contains("host")) host = object["host"].toString();
@@ -315,8 +316,10 @@ namespace Configs {
             path = QString::fromStdString(object.ws_opts.path);
             if (path.contains("?ed=")) {
                 auto spl = path.split("?ed=");
-                path = spl[0];
-                ed = spl[1].toInt();
+                if (spl.size() >= 2) {
+                    path = spl[0];
+                    ed = spl[1].toInt();
+                }
             }
         }
         if (!object.servername.empty()) {
@@ -380,8 +383,10 @@ namespace Configs {
             path = object["path"].toString();
             if (path.contains("?ed=")) {
                 auto spl = path.split("?ed=");
-                path = spl[0];
-                ed = spl[1].toInt();
+                if (spl.size() >= 2) {
+                    path = spl[0];
+                    ed = spl[1].toInt();
+                }
             }
         }
         if (object.contains("host")) host = object["host"].toString();
@@ -395,8 +400,10 @@ namespace Configs {
             path = QString::fromStdString(object.ws_opts.path);
             if (path.contains("?ed=")) {
                 auto spl = path.split("?ed=");
-                path = spl[0];
-                ed = spl[1].toInt();
+                if (spl.size() >= 2) {
+                    path = spl[0];
+                    ed = spl[1].toInt();
+                }
             }
         }
         if (!object.servername.empty()) {

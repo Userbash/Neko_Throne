@@ -75,10 +75,11 @@ namespace Configs {
             }
             QString fp = utlsFingerprint;
             if (!reality_pbk.trimmed().isEmpty()) {
+                auto sid_parts = reality_sid.split(",");
                 tls["reality"] = QJsonObject{
                     {"enabled", true},
                     {"public_key", reality_pbk},
-                    {"short_id", reality_sid.split(",")[0]},
+                    {"short_id", sid_parts.size() > 0 ? sid_parts[0] : ""},
                 };
                 if (fp.isEmpty()) fp = "random";
             }

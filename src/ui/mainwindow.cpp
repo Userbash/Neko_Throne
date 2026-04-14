@@ -1,4 +1,5 @@
 #include "include/ui/mainwindow.h"
+#include "include/api/RPC.h"
 
 #include "include/dataStore/ProfileFilter.hpp"
 #include "include/configs/sub/GroupUpdater.hpp"
@@ -156,8 +157,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     Configs::dataStore->core_port = MkPort();
     if (Configs::dataStore->core_port <= 0) Configs::dataStore->core_port = 19810;
 
-    auto core_path = QApplication::applicationDirPath() + "/";
-    core_path += "NekoCore";
+    auto core_path = Configs::FindCoreRealPath();
 
     QStringList args;
     args.push_back("-port");
@@ -185,7 +185,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         QCoreApplication::processEvents();
         if (Configs::dataStore->core_running) break;
     }
-    if (!Configs::dataStore->core_running) qDebug() << "[Warn] Core is taking too much time to start";
 #endif
 
     if (!Configs::dataStore->font.isEmpty()) {
@@ -255,8 +254,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
             dashFile.close();
         }
     }
-    if (auto dashDir = QDir("icons"); !dashDir.exists("icons")) {
-        QDir().mkdir("icons") ? qDebug("created icons dir") : qDebug("Failed to create icons dir");
+    QString iconsDirPath = QApplication::applicationDirPath() + "/icons";
+    if (!QDir(iconsDirPath).exists()) {
+        QDir().mkpath(iconsDirPath) ? qDebug("created icons dir at %s", qPrintable(iconsDirPath)) : qDebug("Failed to create icons dir at %s", qPrintable(iconsDirPath));
     }
 
     // top bar
@@ -304,6 +304,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     {
         if (row1 == row2) return;
         auto group = Configs::profileManager->CurrentGroup();
+        if (group == nullptr) return;
         group->EmplaceProfile(row1, row2);
         refresh_proxy_list();
         group->Save();
@@ -333,7 +334,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
             return;
         }
         refresh_proxy_list_impl(-1, action);
-        Configs::profileManager->CurrentGroup()->Save();
+        auto group = Configs::profileManager->CurrentGroup();
+        if (group != nullptr) {
+            group->Save();
+        }
     });
     connect(ui->proxyListTable->horizontalHeader(), &QHeaderView::sectionResized, this, [=, this](int logicalIndex, int oldSize, int newSize) {
         auto group = Configs::profileManager->CurrentGroup();
@@ -374,28 +378,36 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     this->refresh_groups();
 
     // Setup Tray
-    tray = new QSystemTrayIcon(this);
-    tray->setIcon(GetTrayIcon(Icon::NONE));
+    static bool is_offscreen = QGuiApplication::platformName().contains("offscreen") || 
+                               QGuiApplication::platformName().contains("minimal");
+    
+    if (!is_offscreen) {
+        tray = new QSystemTrayIcon(this);
+        tray->setIcon(GetTrayIcon(Icon::NONE));
+        auto *trayMenu = new QMenu(this);
+        trayMenu->addAction(ui->actionShow_window);
+        trayMenu->addSeparator();
+        trayMenu->addAction(ui->actionStart_with_system);
+        trayMenu->addAction(ui->actionRemember_last_proxy);
+        trayMenu->addAction(ui->actionAllow_LAN);
+        trayMenu->addSeparator();
+        trayMenu->addMenu(ui->menu_spmode);
+        trayMenu->addSeparator();
+        trayMenu->addAction(ui->actionRestart_Proxy);
+        trayMenu->addAction(ui->actionRestart_Program);
+        trayMenu->addAction(ui->menu_exit);
+        tray->setVisible(!Configs::dataStore->disable_tray);
+        tray->setContextMenu(trayMenu);
+        connect(tray, &QSystemTrayIcon::activated, qApp, [=, this](QSystemTrayIcon::ActivationReason reason) {
+            if (reason == QSystemTrayIcon::Trigger) {
+                ActivateWindow(this);
+            }
+        });
+    } else {
+        tray = nullptr;
+    }
+    
     QApplication::setWindowIcon(Icon::GetTrayIcon(Icon::NONE));
-    auto *trayMenu = new QMenu(this);
-    trayMenu->addAction(ui->actionShow_window);
-    trayMenu->addSeparator();
-    trayMenu->addAction(ui->actionStart_with_system);
-    trayMenu->addAction(ui->actionRemember_last_proxy);
-    trayMenu->addAction(ui->actionAllow_LAN);
-    trayMenu->addSeparator();
-    trayMenu->addMenu(ui->menu_spmode);
-    trayMenu->addSeparator();
-    trayMenu->addAction(ui->actionRestart_Proxy);
-    trayMenu->addAction(ui->actionRestart_Program);
-    trayMenu->addAction(ui->menu_exit);
-    tray->setVisible(!Configs::dataStore->disable_tray);
-    tray->setContextMenu(trayMenu);
-    connect(tray, &QSystemTrayIcon::activated, qApp, [=, this](QSystemTrayIcon::ActivationReason reason) {
-        if (reason == QSystemTrayIcon::Trigger) {
-            ActivateWindow(this);
-        }
-    });
 
     // Misc menu
     ui->actionRemember_last_proxy->setChecked(Configs::dataStore->remember_enable);
@@ -578,7 +590,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         urltest_current_group(get_now_selected_list());
     });
     connect(ui->actionUrl_Test_Group, &QAction::triggered, this, [=,this]() {
-        urltest_current_group(Configs::profileManager->CurrentGroup()->GetProfileEnts());
+        auto group = Configs::profileManager->CurrentGroup();
+        if (group != nullptr) {
+            urltest_current_group(group->GetProfileEnts());
+        }
     });
     connect(ui->actionSpeedtest_Current, &QAction::triggered, this, [=,this]()
     {
@@ -593,7 +608,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     });
     connect(ui->actionSpeedtest_Group, &QAction::triggered, this, [=,this]()
     {
-        speedtest_current_group(Configs::profileManager->CurrentGroup()->GetProfileEnts());
+        auto group = Configs::profileManager->CurrentGroup();
+        if (group != nullptr) {
+            speedtest_current_group(group->GetProfileEnts());
+        }
     });
     connect(ui->menu_stop_testing, &QAction::triggered, this, [=,this]() { stopTests(); });
     //
@@ -843,9 +861,12 @@ void MainWindow::dialog_message_impl(const QString &sender, const QString &info)
     {
         if (Configs::dataStore->system_dns_set)
         {
-            auto oldAddr = info.split(",")[1];
-            set_system_dns(false);
-            set_system_dns(true);
+            auto parts = info.split(",");
+            if (parts.size() >= 2) {
+                auto oldAddr = parts[1];
+                set_system_dns(false);
+                set_system_dns(true);
+            }
         }
     }
     if (info.contains("NeedRestart")) {
@@ -916,9 +937,13 @@ void MainWindow::dialog_message_impl(const QString &sender, const QString &info)
             if (Configs::dataStore->flag_dns_set) {
                 set_system_dns(true);
             }
-            if (auto id = info.split(",")[1].toInt(); id >= 0)
             {
-                profile_start(id);
+                auto parts = info.split(",");
+                if (parts.size() >= 2) {
+                    if (auto id = parts[1].toInt(); id >= 0) {
+                        profile_start(id);
+                    }
+                }
             }
             if (Configs::dataStore->system_dns_set) {
                 set_system_dns(true);
@@ -979,7 +1004,6 @@ void MainWindow::on_menu_hotkey_settings_triggered() {
 }
 
 void MainWindow::on_commitDataRequest() {
-    qDebug() << "Start of data save";
     //
     Configs::dataStore->mainWindowGeometry = this->saveGeometry().toBase64(QByteArray::Base64Encoding);
     if (!isMaximized()) {
@@ -1000,16 +1024,13 @@ void MainWindow::on_commitDataRequest() {
     //
     Configs::dataStore->Save();
     Configs::profileManager->SaveManager();
-    qDebug() << "End of data save";
 }
 
 void MainWindow::prepare_exit()
 {
-    qDebug() << "prepare for exit...";
     mu_exit.lock();
     if (Configs::dataStore->prepare_exit)
     {
-        qDebug() << "prepare exit had already succeeded, ignoring...";
         mu_exit.unlock();
         return;
     }
@@ -1026,10 +1047,9 @@ void MainWindow::prepare_exit()
     Configs::dataStore->save_control_no_save = true; // don't change datastore after this line
     profile_stop(false, true);
 
-    runOnThread([=, this]()
-    {
+    if (core_process) {
         core_process->Kill();
-    }, DS_cores, true);
+    }
 
     // Ensure IPv6 and leak guard are restored before exit
     NetworkLeakGuard::instance()->stopMonitoring();
@@ -1041,7 +1061,6 @@ void MainWindow::prepare_exit()
     }
 
     mu_exit.unlock();
-    qDebug() << "prepare exit done!";
 }
 
 void MainWindow::on_menu_exit_triggered() {
@@ -1050,8 +1069,9 @@ void MainWindow::on_menu_exit_triggered() {
     if (exit_reason == 1) {
         QDir::setCurrent(QApplication::applicationDirPath());
 #ifdef Q_OS_WIN
-        QFile::copy("./updater.exe", "./updater.old");
-        QProcess::startDetached("./updater.old", QStringList{});
+        if (QFile::copy("./updater.exe", "./updater.old")) {
+            QProcess::startDetached("./updater.old", QStringList{});
+        }
 #else
         QProcess::startDetached("./updater", QStringList{});
 #endif
@@ -1099,29 +1119,144 @@ bool MainWindow::get_elevated_permissions(int reason) {
     }
     if (Configs::IsAdmin()) return true;
 #ifdef Q_OS_LINUX
-    if (!Linux_HavePkexec()) {
-        MessageBoxWarning(software_name, "Please install \"pkexec\" first.");
+    (void) reason;
+    const bool havePkexec = Linux_HavePkexec();
+    const QString corePath = Configs::FindCoreRealPath();
+
+    if (!havePkexec) {
+        MW_show_log(tr("pkexec not found, will attempt elevation via sudo -n fallback."));
+    }
+
+    // On filesystems mounted with `nosuid` (notably /var/home on Fedora
+    // Silverblue/Kinoite, where this app is commonly built), the kernel
+    // silently discards file capabilities and the setuid bit at exec time.
+    // Running `setcap` will succeed, but the running core still has no
+    // privileges, producing "configure tun interface: operation not permitted".
+    //
+    // In that case we install a privileged copy of the core binary into
+    // /usr/local/bin (which is not nosuid) and relaunch the core from there.
+    const bool nosuid = Linux_IsPathNosuid(corePath);
+    const QString installPath = QStringLiteral("/usr/local/bin/NekoCore");
+
+    QString dialogText;
+    if (nosuid) {
+        dialogText = tr(
+            "TUN / System Proxy mode requires elevated privileges.\n\n"
+            "Detected: the core binary lives on a filesystem mounted with "
+            "'nosuid' (common on Fedora Silverblue/Kinoite). On such mounts "
+            "the Linux kernel ignores both setuid and file capabilities, so "
+            "'setcap' alone is not enough.\n\n"
+            "Click 'Yes' to install a privileged copy to:\n  %1\n\n"
+            "If you prefer to do it manually, run in a terminal:\n\n"
+            "  sudo install -o root -g root -m 0755 \\\n"
+            "      %2 %1\n"
+            "  sudo setcap cap_net_admin,cap_net_bind_service=+ep %1\n"
+        ).arg(installPath, corePath);
+    } else {
+        dialogText = tr(
+            "TUN / System Proxy mode requires elevated privileges.\n\n"
+            "Click 'Yes' to apply file capabilities automatically.\n\n"
+            "If you prefer to do it manually, run in a terminal:\n\n"
+            "  sudo setcap cap_net_admin,cap_net_bind_service=+ep %1\n"
+        ).arg(corePath);
+    }
+
+    auto n = QMessageBox::warning(GetMessageBoxParent(), software_name, dialogText,
+                                  QMessageBox::Yes | QMessageBox::No);
+    if (n != QMessageBox::Yes) {
         return false;
     }
-    auto n = QMessageBox::warning(GetMessageBoxParent(), software_name, tr("Please give the core root privileges"), QMessageBox::Yes | QMessageBox::No);
-    if (n == QMessageBox::Yes) {
-        runOnNewThread([=,this]
-        {
-            auto chownArgs = QString("root:root " + Configs::FindCoreRealPath());
-            auto ret = Linux_Run_Command("chown", chownArgs);
-            if (ret != 0) {
-                MW_show_log(QString("Failed to run chown %1 code is %2").arg(chownArgs).arg(ret));
-            }
-            auto chmodArgs = QString("u+s " + Configs::FindCoreRealPath());
-            ret = Linux_Run_Command("chmod", chmodArgs);
-            if (ret == 0) {
-                StopVPNProcess();
+
+    // Run elevation synchronously on a worker thread and wait for it. The old
+    // code fire-and-forgot, which caused the caller to immediately ask the
+    // core to start TUN before setcap had run — or worse, while setcap had
+    // succeeded but the already-running core still held no capabilities.
+    bool elevationOk = false;
+    bool needCoreRestart = false;
+    QString failureReason;
+
+    QEventLoop loop;
+    QThread *worker = QThread::create([&]() {
+        if (nosuid) {
+            // Build a single shell command so the whole install+setcap runs
+            // under one pkexec prompt.
+            const QString installCmd = Linux_FindCapProgsExec("install");
+            const QString setcapCmd = Linux_FindCapProgsExec("setcap");
+            const QString cmd = QString(
+                "set -e; "
+                "%3 -o root -g root -m 0755 %1 %2 && "
+                "%4 cap_net_admin,cap_net_bind_service=+ep %2"
+            ).arg(corePath, installPath, installCmd, setcapCmd);
+            int rc = Linux_Run_Privileged_Shell(cmd);
+            if (rc == 0 && QFileInfo(installPath).exists() &&
+                Linux_FileHasCapNetAdmin(installPath) &&
+                !Linux_IsPathNosuid(installPath)) {
+                elevationOk = true;
+                needCoreRestart = true;
             } else {
-                MW_show_log(QString("Failed to run chmod %1").arg(chmodArgs));
+                failureReason = tr("Could not install a privileged copy of the "
+                                   "core to %1 (exit code %2). Please run the "
+                                   "manual commands shown in the previous dialog.")
+                                    .arg(installPath).arg(rc);
             }
-        });
+        } else {
+            // Non-nosuid: just apply file caps in place. No chown/chmod+s: file
+            // caps don't need root ownership, and the setuid bit is both
+            // unnecessary and adds an avoidable security footgun.
+            const QString setcapCmd = Linux_FindCapProgsExec("setcap");
+            const QString cmd =
+                QString("%2 cap_net_admin,cap_net_bind_service=+ep %1")
+                    .arg(corePath, setcapCmd);
+            int rc = Linux_Run_Privileged_Shell(cmd);
+            if (rc == 0 && Linux_FileHasCapNetAdmin(corePath)) {
+                elevationOk = true;
+                needCoreRestart = true;
+            } else {
+                failureReason = tr("setcap failed (exit code %1). Please run "
+                                   "the manual command shown in the previous "
+                                   "dialog.").arg(rc);
+            }
+        }
+    });
+    connect(worker, &QThread::finished, &loop, &QEventLoop::quit);
+    worker->start();
+    loop.exec();
+    worker->deleteLater();
+
+    if (!elevationOk) {
+        MW_show_log("[Error] " + failureReason);
+        QMessageBox::critical(GetMessageBoxParent(), software_name, failureReason);
         return false;
     }
+
+    MW_show_log(tr("Successfully elevated core privileges."));
+
+    // File capabilities are read by the kernel at exec() time — a process that
+    // was already running before setcap was called does NOT inherit the new
+    // caps. Restart the core now so the next start/profile call runs with
+    // CAP_NET_ADMIN and the TUN inbound can be configured.
+    if (needCoreRestart && core_process) {
+        MW_show_log(tr("Restarting core to apply new privileges..."));
+        // Forget the in-memory admin-cache so the next IsAdmin() call probes
+        // the freshly-launched core.
+        Configs::IsAdmin(true);
+        // Hop to the core thread, since CoreProcess lives there.
+        runOnThread([this] { core_process->Restart(); }, DS_cores);
+
+        // Wait until the new core reports itself running (bounded).
+        for (int i = 0; i < 50 && !Configs::dataStore->core_running; i++) {
+            QThread::msleep(100);
+            QCoreApplication::processEvents();
+        }
+        // Re-probe privilege state; treat the elevation as successful only if
+        // the newly-launched core actually reports admin.
+        if (!Configs::IsAdmin(true)) {
+            MW_show_log("[Warn] " + tr("Core restarted but still reports no "
+                                       "privileges. TUN mode may still fail."));
+        }
+    }
+
+    return true;
 #endif
 #ifdef Q_OS_WIN
     auto n = QMessageBox::warning(GetMessageBoxParent(), software_name, tr("Please run Throne as admin"), QMessageBox::Yes | QMessageBox::No);
@@ -1129,8 +1264,8 @@ bool MainWindow::get_elevated_permissions(int reason) {
         this->exit_reason = reason;
         on_menu_exit_triggered();
     }
-#endif
     return false;
+#endif
 }
 
 void MainWindow::set_spmode_vpn(bool enable, bool save) {
@@ -1408,7 +1543,7 @@ void MainWindow::refresh_status(const QString &traffic_update) {
                                 !QGuiApplication::platformName().contains("minimal");
     
     // Verify if the system tray is actually responsive before attempting access.
-    bool tray_functional = is_gui_stable && QSystemTrayIcon::isSystemTrayAvailable();
+    bool tray_functional = tray && is_gui_stable && QSystemTrayIcon::isSystemTrayAvailable();
 
     // ── Traffic Stats ────────────────────────────────────────────────────────
     auto refresh_speed_label = [this] {
@@ -1610,23 +1745,30 @@ void MainWindow::refresh_proxy_list_impl(const int &id, GroupSortAction groupSor
             case GroupSortMethod::ByType: {
                 std::sort(currentGroup->profiles.begin(), currentGroup->profiles.end(),
                           [=,this](int a, int b) {
+                              auto prof_a = Configs::profileManager->GetProfile(a);
+                              auto prof_b = Configs::profileManager->GetProfile(b);
+                              // Fallback to profile ID comparison if either profile is missing
+                              if (!prof_a || !prof_b) return a < b;
+
                               QString ms_a;
                               QString ms_b;
                               if (groupSortAction.method == GroupSortMethod::ByType) {
-                                  ms_a = Configs::profileManager->GetProfile(a)->outbound->DisplayType();
-                                  ms_b = Configs::profileManager->GetProfile(b)->outbound->DisplayType();
+                                  ms_a = prof_a->outbound->DisplayType();
+                                  ms_b = prof_b->outbound->DisplayType();
                               } else if (groupSortAction.method == GroupSortMethod::ByName) {
-                                  ms_a = Configs::profileManager->GetProfile(a)->outbound->name;
-                                  ms_b = Configs::profileManager->GetProfile(b)->outbound->name;
+                                  ms_a = prof_a->outbound->name;
+                                  ms_b = prof_b->outbound->name;
                               } else if (groupSortAction.method == GroupSortMethod::ByAddress) {
-                                  ms_a = Configs::profileManager->GetProfile(a)->outbound->DisplayAddress();
-                                  ms_b = Configs::profileManager->GetProfile(b)->outbound->DisplayAddress();
+                                  ms_a = prof_a->outbound->DisplayAddress();
+                                  ms_b = prof_b->outbound->DisplayAddress();
                               } else if (groupSortAction.method == GroupSortMethod::ByLatency) {
-                                  ms_a = Configs::profileManager->GetProfile(a)->full_test_report;
-                                  ms_b = Configs::profileManager->GetProfile(b)->full_test_report;
+                                  ms_a = prof_a->full_test_report;
+                                  ms_b = prof_b->full_test_report;
                               }
                               auto get_latency_for_sort = [](int id) {
-                                  auto i = Configs::profileManager->GetProfile(id)->latency;
+                                  auto p = Configs::profileManager->GetProfile(id);
+                                  if (!p) return 99999;
+                                  auto i = p->latency;
                                   if (i == 0) i = 100000;
                                   if (i < 0) i = 99999;
                                   return i;
@@ -1641,8 +1783,8 @@ void MainWindow::refresh_proxy_list_impl(const int &id, GroupSortAction groupSor
                                   return ms_a > ms_b;
                               } else {
                                   if (groupSortAction.method == GroupSortMethod::ByLatency) {
-                                      auto int_a = Configs::profileManager->GetProfile(a)->latency;
-                                      auto int_b = Configs::profileManager->GetProfile(b)->latency;
+                                      auto int_a = prof_a->latency;
+                                      auto int_b = prof_b->latency;
                                       if (ms_a.isEmpty() && ms_b.isEmpty()) {
                                           // compare latency if full_test_report is empty
                                           return get_latency_for_sort(a) < get_latency_for_sort(b);
@@ -1872,6 +2014,10 @@ void MainWindow::on_menu_export_config_triggered() {
     auto ent = ents.first();
 
     auto result = Configs::BuildSingBoxConfig(ent);
+    if (!result || !result->error.isEmpty()) {
+        MessageBoxWarning(tr("Build config error"), result ? result->error : tr("Unknown error"));
+        return;
+    }
     QString config_core = QJsonObject2QString(result->coreConfig, true);
     QApplication::clipboard()->setText(config_core);
 
@@ -1929,7 +2075,8 @@ void MainWindow::display_qr_link(bool nkrFormat) {
             constexpr qint32 qr_padding = 2;
             //
             try {
-                qrcodegen::QrCode qr = qrcodegen::QrCode::encodeText(link_display.toUtf8().data(), qrcodegen::QrCode::Ecc::MEDIUM);
+                auto utf8Data = link_display.toUtf8();
+                qrcodegen::QrCode qr = qrcodegen::QrCode::encodeText(utf8Data.data(), qrcodegen::QrCode::Ecc::MEDIUM);
                 qint32 sz = qr.getSize();
                 im = QImage(sz + qr_padding * 2, sz + qr_padding * 2, QImage::Format_RGB32);
                 QRgb black = qRgb(0, 0, 0);
@@ -2115,7 +2262,7 @@ std::atomic<bool> mw_sub_updating{false};
 
 void MainWindow::on_menu_update_subscription_triggered() {
     auto group = Configs::profileManager->CurrentGroup();
-    if (group->url.isEmpty()) return;
+    if (group == nullptr || group->url.isEmpty()) return;
     if (mw_sub_updating) return;
     mw_sub_updating = true;
     Subscription::groupUpdater->AsyncUpdate(group->url, group->id, [&] { mw_sub_updating = false; });
@@ -2158,24 +2305,26 @@ void MainWindow::on_menu_remove_invalid_triggered() {
      auto currentGroup = Configs::profileManager->GetGroup(Configs::dataStore->current_group);
      if (currentGroup == nullptr) return;
      std::atomic counter(0);
-     QMutex mu;
      QMutex access;
      int profileSize = currentGroup->GetProfileEnts().size();
-     mu.lock();
+     if (profileSize == 0) return;
+
      for (const auto& profile : currentGroup->GetProfileEnts()) {
-         parallelCoreCallPool->start([&out_del, profile, &counter, &mu, profileSize, &access]
+         parallelCoreCallPool->start([&out_del, profile, &counter, profileSize, &access]
          {
              if (!IsValid(profile))
              {
-                 access.lock();
+                 QMutexLocker locker(&access);
                  out_del += profile;
-                 access.unlock();
              }
-             if (++counter == profileSize) mu.unlock();
+             counter++;
          });
      }
-     mu.lock();
-     mu.unlock();
+
+     // Wait for all tasks to complete
+     while (counter.load() < profileSize) {
+         QThread::msleep(10);
+     }
 
      int remove_display_count = 0;
      QString remove_display;
@@ -2267,11 +2416,16 @@ QList<std::shared_ptr<Configs::ProxyEntity>> MainWindow::get_now_selected_list()
 QList<std::shared_ptr<Configs::ProxyEntity>> MainWindow::get_selected_or_group() {
     auto selected_or_group = ui->menu_server->property("selected_or_group").toInt();
     QList<std::shared_ptr<Configs::ProxyEntity>> profiles;
+    auto currentGroup = Configs::profileManager->CurrentGroup();
     if (selected_or_group > 0) {
         profiles = get_now_selected_list();
-        if (profiles.isEmpty() && selected_or_group == 2) profiles = Configs::profileManager->CurrentGroup()->GetProfileEnts();
+        if (profiles.isEmpty() && selected_or_group == 2 && currentGroup != nullptr) {
+            profiles = currentGroup->GetProfileEnts();
+        }
     } else {
-        profiles = Configs::profileManager->CurrentGroup()->GetProfileEnts();
+        if (currentGroup != nullptr) {
+            profiles = currentGroup->GetProfileEnts();
+        }
     }
     return profiles;
 }
@@ -2434,6 +2588,9 @@ void MainWindow::on_tabWidget_customContextMenuRequested(const QPoint &p) {
 bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
     if (event->type() == QEvent::MouseButtonPress) {
         auto mouseEvent = dynamic_cast<QMouseEvent *>(event);
+        if (mouseEvent == nullptr) {
+            return QMainWindow::eventFilter(obj, event);
+        }
         if (obj == ui->label_running && mouseEvent->button() == Qt::LeftButton && running != nullptr) {
             url_test_current();
             return true;
@@ -2591,6 +2748,10 @@ void MainWindow::HotkeyEvent(const QString &key) {
 bool MainWindow::StopVPNProcess() {
     runOnThread([=, this]
     {
+        if (API::defaultClient) {
+            bool ok;
+            API::defaultClient->Stop(&ok);
+        }
         core_process->Kill();
     }, DS_cores, true);
 
@@ -2599,11 +2760,13 @@ bool MainWindow::StopVPNProcess() {
 
 bool isNewer(QString assetName) {
     if (QString(NKR_VERSION).isEmpty()) return false;
+    if (assetName.length() < 8) return false; // must be at least "Throne-X"
     assetName = assetName.mid(7); // take out Throne-
     QString version;
     auto spl = assetName.split('-');
+    if (spl.size() < 1) return false;
     version += spl[0]; // version: 1.2.3
-    if (spl[1].contains("beta") || spl[1].contains("alpha") || spl[1].contains("rc")) version += "."+spl[1]; // .beta.13
+    if (spl.size() >= 2 && (spl[1].contains("beta") || spl[1].contains("alpha") || spl[1].contains("rc"))) version += "."+spl[1]; // .beta.13
     auto parts = version.split("."); // [1,2,3,beta,13]
     auto currentParts = QString(NKR_VERSION).replace("-", ".").split('.');
     if (parts.size() < 3 || currentParts.size() < 3)

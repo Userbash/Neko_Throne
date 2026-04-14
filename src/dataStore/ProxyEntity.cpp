@@ -17,13 +17,22 @@ namespace Configs
 
         if (bean != nullptr) {
             this->_bean = std::shared_ptr<Configs::AbstractBean>(bean);
-            _add(new configItem("bean", dynamic_cast<JsonStore *>(bean), itemType::jsonStore));
+            auto beanStore = dynamic_cast<JsonStore *>(bean);
+            if (beanStore != nullptr) {
+                _add(new configItem("bean", beanStore, itemType::jsonStore));
+            }
         }
 
         if (outbound != nullptr) {
             this->outbound = std::shared_ptr<Configs::outbound>(outbound);
-            _add(new configItem("outbound", dynamic_cast<JsonStore *>(outbound), itemType::jsonStore));
-            _add(new configItem("traffic", dynamic_cast<JsonStore *>(traffic_data.get()), itemType::jsonStore));
+            auto outboundStore = dynamic_cast<JsonStore *>(outbound);
+            if (outboundStore != nullptr) {
+                _add(new configItem("outbound", outboundStore, itemType::jsonStore));
+            }
+            auto trafficStore = dynamic_cast<JsonStore *>(traffic_data.get());
+            if (trafficStore != nullptr) {
+                _add(new configItem("traffic", trafficStore, itemType::jsonStore));
+            }
         }
     }
 
