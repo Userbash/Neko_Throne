@@ -48,16 +48,16 @@ namespace Stats
         for (auto conn : conns)
         {
             auto c = ConnectionMetadata();
-            c.id = QString(conn.id.value().c_str());
-            c.createdAtMs = conn.created_at.value();
-            c.dest = QString(conn.dest.value().c_str());
-            c.upload = conn.upload.value();
-            c.download = conn.download.value();
-            c.domain = QString(conn.domain.value().c_str());
-            c.network = QString(conn.network.value().c_str());
-            c.outbound = QString(conn.outbound.value().c_str());
-            c.process = QString(conn.process.value().c_str());
-            c.protocol = QString(conn.protocol.value().c_str());
+            c.id = conn.id.has_value() ? QString(conn.id.value().c_str()) : "";
+            c.createdAtMs = conn.created_at.has_value() ? conn.created_at.value() : 0;
+            c.dest = conn.dest.has_value() ? QString(conn.dest.value().c_str()) : "";
+            c.upload = conn.upload.has_value() ? conn.upload.value() : 0;
+            c.download = conn.download.has_value() ? conn.download.value() : 0;
+            c.domain = conn.domain.has_value() ? QString(conn.domain.value().c_str()) : "";
+            c.network = conn.network.has_value() ? QString(conn.network.value().c_str()) : "";
+            c.outbound = conn.outbound.has_value() ? QString(conn.outbound.value().c_str()) : "";
+            c.process = conn.process.has_value() ? QString(conn.process.value().c_str()) : "";
+            c.protocol = conn.protocol.has_value() ? QString(conn.protocol.value().c_str()) : "";
             if (sort == Default)
             {
                 if (state->contains(c.id))
