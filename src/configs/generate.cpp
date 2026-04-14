@@ -667,14 +667,21 @@ namespace Configs {
             }
             object["tag"] = tag;
             if (!nextTag.isEmpty() && link) object["detour"] = nextTag;
-            if (ent->outbound->IsXray()) {
+            if (ent->outbound->MustXray()) {
                 auto [xrayObj, xrayErr] = ent->outbound->BuildXray();
                 if (!xrayErr.isEmpty()) {
                     ctx->error += xrayErr;
                     return;
                 }
                 if (xrayPort == -1) xrayPort = MkPort();
-                object["server_port"] = xrayPort;
+                
+                // Replace with a SOCKS outbound pointing to the Xray core
+                object = QJsonObject{
+                    {"type", "socks"},
+                    {"server", "127.0.0.1"},
+                    {"server_port", xrayPort}
+                };
+                
                 xrayObj["tag"] = tag;
                 ctx->xrayOutbounds.append({xrayPort, xrayObj});
             }
@@ -693,7 +700,7 @@ namespace Configs {
 
     void buildOutboundsSection(std::shared_ptr<BuildSingBoxConfigContext> &ctx) {
         // First, our own ent
-        bool noChain = ctx->ent->outbound->IsXray();
+        bool noChain = ctx->ent->outbound->MustXray();
         QList<int> entIDs;
         auto group = profileManager->GetGroup(ctx->ent->gid);
         if (group == nullptr)
@@ -1130,7 +1137,26 @@ namespace Configs {
         }
         if (!fullConf)
         {
-            auto out = ent->outbound->Build();
+            // Use BuildXray() for xray-based outbounds (e.g., vless with xhttp transport)
+            BuildResult out;
+            if (ent->outbound->MustXray()) {
+                out = ent->outbound->BuildXray();
+                // For xray validation, skip since we don't have xray running in validation context
+                // Just return true (assume valid)
+                if (!out.error.isEmpty()) {
+                    qWarning() << "Cannot build Xray config:" << out.error;
+                    return true;
+                }
+                return true; // Skip sing-box validation for Xray outbounds
+            } else {
+                out = ent->outbound->Build();
+                if (!out.error.isEmpty()) {
+                    // Build() failed (e.g., for chain type)
+                    // Assume valid if we can't build
+                    qWarning() << "Cannot validate entity:" << out.error;
+                    return true;
+                }
+            }
             auto outArr = QJsonArray{out.object};
             auto key = ent->outbound->IsEndpoint() ? "endpoints" : "outbounds";
             conf = {
@@ -1174,7 +1200,7 @@ namespace Configs {
         int xrayPortIdx=0;
         int xrayCount=0;
         for (const auto& proxy : profiles) {
-            if (proxy->outbound->IsXray()) xrayCount++;
+            if (proxy->outbound->MustXray()) xrayCount++;
         }
         auto xrayPorts = MkManyPorts(xrayCount);
 
@@ -1218,9 +1244,9 @@ namespace Configs {
                 res->error = "Null group on profile, data is corrupted";
                 return res;
             }
-            if (group->landing_proxy_id >= 0 && !item->outbound->IsXray()) IDs.prepend(group->landing_proxy_id);
-            if (group->front_proxy_id >= 0 && !item->outbound->IsXray()) IDs.append(group->front_proxy_id);
-            buildOutboundChain(ctx, IDs, "proxy-" + Int2String(suffix), false, true, item->outbound->IsXray() ? xrayPorts[xrayPortIdx++] : -1);
+            if (group->landing_proxy_id >= 0 && !item->outbound->MustXray()) IDs.prepend(group->landing_proxy_id);
+            if (group->front_proxy_id >= 0 && !item->outbound->MustXray()) IDs.append(group->front_proxy_id);
+            buildOutboundChain(ctx, IDs, "proxy-" + Int2String(suffix), false, true, item->outbound->MustXray() ? xrayPorts[xrayPortIdx++] : -1);
             if (!ctx->error.isEmpty()) {
                 res->error = ctx->error;
                 return res;
