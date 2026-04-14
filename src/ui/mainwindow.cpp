@@ -7,8 +7,12 @@
 #include "include/sys/NetworkLeakGuard.hpp"
 #include "include/sys/ProxyStateManager.hpp"
 #include "include/sys/AutoRun.hpp"
+#include "include/stats/traffic/TrafficLooper.hpp"
 
 #include "include/ui/setting/ThemeManager.hpp"
+#include <mutex>
+#include <chrono>
+
 #include "include/ui/setting/Icon.hpp"
 #include "include/ui/profile/dialog_edit_profile.h"
 #include "include/ui/setting/dialog_basic_settings.h"
@@ -99,6 +103,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     if (!Configs::dataStore->mainWindowGeometry.isEmpty()) {
         auto geo = DecodeB64IfValid(Configs::dataStore->mainWindowGeometry);
         this->restoreGeometry(geo);
+    } else {
+        qDebug() << "[UI] No saved window geometry, using default size";
     }
 
     // setup log
@@ -193,11 +199,15 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         auto font = qApp->font();
         font.setFamily(Configs::dataStore->font);
         qApp->setFont(font);
+    } else {
+        qDebug() << "[UI] Font setting is empty, using system default";
     }
     if (Configs::dataStore->font_size != 0) {
         auto font = qApp->font();
         font.setPointSize(Configs::dataStore->font_size);
         qApp->setFont(font);
+    } else {
+        qDebug() << "[UI] Font size is 0, using system default";
     }
 
     parallelCoreCallPool->setMaxThreadCount(10); // constant value
@@ -208,7 +218,12 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         QStringList parts;
         if (info.singboxAvailable) parts << "sb:" + info.singboxVersion;
         if (info.xrayAvailable) parts << "xr:" + info.xrayVersion;
-        core_version_suffix = parts.isEmpty() ? QString() : "(" + parts.join(" ") + ")";
+        if (parts.isEmpty()) {
+            qDebug() << "[UI] No core versions available from parser";
+            core_version_suffix = QString();
+        } else {
+            core_version_suffix = "(" + parts.join(" ") + ")";
+        }
         refresh_status();
     });
     versionParser->requestVersions();
@@ -926,7 +941,7 @@ void MainWindow::dialog_message_impl(const QString &sender, const QString &info)
             }
             profile_stop();
         } else if (info.startsWith("CoreStarted")) {
-            Configs::IsAdmin(true);
+            Configs::IsCorePrivileged(true);
             // Deactivate kill switch if it was activated during crash
             if (ProxyStateManager::instance()->isKillSwitchActive()) {
                 ProxyStateManager::instance()->deactivateKillSwitch();
@@ -1034,11 +1049,11 @@ void MainWindow::on_commitDataRequest() {
 void MainWindow::prepare_exit()
 {
     qDebug() << "prepare for exit...";
-    mu_exit.lock();
+    QMutexLocker locker(&mu_exit);
+
     if (Configs::dataStore->prepare_exit)
     {
         qDebug() << "prepare exit had already succeeded, ignoring...";
-        mu_exit.unlock();
         return;
     }
     HideWindow(this);
@@ -1058,16 +1073,29 @@ void MainWindow::prepare_exit()
         core_process->Kill();
     }
 
-    // Ensure IPv6 and leak guard are restored before exit
+    // Explicitly stop RPC client and cancel pending operations before other cleanup
+    if (API::defaultClient) {
+        API::defaultClient->StopPendingOperations();
+    }
+
+    // Ensure traffic looper and leak guard are stopped before exit
+    Stats::GetTrafficLooper()->stop();
+    Stats::GetTrafficLooper()->waitForStop();
+    Stats::connection_lister->stopLoop();
+    Stats::connection_lister->waitForStop();
     NetworkLeakGuard::instance()->stopMonitoring();
     NetworkLeakGuard::instance()->restoreIPv6();
+
+    // Final safety: force-stop any remaining threads in the global pool
+    QThreadPool::globalInstance()->clear();
+    QThreadPool::globalInstance()->waitForDone(2000); // Wait up to 2s for threads to exit
 
     // Deactivate kill switch and ensure clean proxy state
     if (ProxyStateManager::instance()->isKillSwitchActive()) {
         ProxyStateManager::instance()->deactivateKillSwitch();
     }
+    ProxyStateManager::instance()->waitForTransition();
 
-    mu_exit.unlock();
     qDebug() << "prepare exit done!";
 }
 
@@ -1125,7 +1153,7 @@ bool MainWindow::get_elevated_permissions(int reason) {
         MW_show_log(tr("User opted for no privilege req, some features may not work"));
         return true;
     }
-    if (Configs::IsAdmin()) return true;
+    if (Configs::IsCorePrivileged()) return true;
 #ifdef Q_OS_LINUX
     (void) reason;
     const bool havePkexec = Linux_HavePkexec();
@@ -1245,9 +1273,9 @@ bool MainWindow::get_elevated_permissions(int reason) {
     // CAP_NET_ADMIN and the TUN inbound can be configured.
     if (needCoreRestart && core_process) {
         MW_show_log(tr("Restarting core to apply new privileges..."));
-        // Forget the in-memory admin-cache so the next IsAdmin() call probes
+        // Forget the in-memory privilege-cache so the next check probes
         // the freshly-launched core.
-        Configs::IsAdmin(true);
+        Configs::IsCorePrivileged(true);
         // Hop to the core thread, since CoreProcess lives there.
         runOnThread([this] { core_process->Restart(); }, DS_cores);
 
@@ -1258,7 +1286,7 @@ bool MainWindow::get_elevated_permissions(int reason) {
         }
         // Re-probe privilege state; treat the elevation as successful only if
         // the newly-launched core actually reports admin.
-        if (!Configs::IsAdmin(true)) {
+        if (!Configs::IsCorePrivileged(true)) {
             MW_show_log("[Warn] " + tr("Core restarted but still reports no "
                                        "privileges. TUN mode may still fail."));
         }
@@ -2272,8 +2300,8 @@ void MainWindow::on_menu_update_subscription_triggered() {
     auto group = Configs::profileManager->CurrentGroup();
     if (group == nullptr || group->url.isEmpty()) return;
     if (mw_sub_updating) return;
-    mw_sub_updating = true;
-    Subscription::groupUpdater->AsyncUpdate(group->url, group->id, [&] { mw_sub_updating = false; });
+    mw_sub_updating.store(true);
+    Subscription::groupUpdater->AsyncUpdate(group->url, group->id, [&] { mw_sub_updating.store(false); });
 }
 
 void MainWindow::on_menu_remove_unavailable_triggered() {
@@ -2364,7 +2392,7 @@ void MainWindow::on_menu_resolve_selected_triggered() {
     if (profiles.isEmpty()) return;
 
     if (mw_sub_updating) return;
-    mw_sub_updating = true;
+    mw_sub_updating.store(true);
     auto resolve_count = std::atomic<int>(0);
     Configs::dataStore->resolve_count = profiles.count();
 
@@ -2373,7 +2401,7 @@ void MainWindow::on_menu_resolve_selected_triggered() {
             profile->Save();
             refresh_proxy_list(profile->id);
             if (--Configs::dataStore->resolve_count != 0) return;
-            mw_sub_updating = false;
+            mw_sub_updating.store(false);
         });
     }
 } 
@@ -2391,7 +2419,7 @@ void MainWindow::on_menu_resolve_domain_triggered() {
         return;
     }
     if (mw_sub_updating) return;
-    mw_sub_updating = true;
+    mw_sub_updating.store(true);
     auto resolve_count = std::atomic<int>(0);
     Configs::dataStore->resolve_count = profiles.count();
 
@@ -2401,7 +2429,7 @@ void MainWindow::on_menu_resolve_domain_triggered() {
             profile->Save();
             refresh_proxy_list(profile->id);
             if (--Configs::dataStore->resolve_count != 0) return;
-            mw_sub_updating = false;
+            mw_sub_updating.store(false);
         });
     }
 }

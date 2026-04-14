@@ -97,11 +97,6 @@ func (s *server) Start(ctx context.Context, in *gen.LoadConfigReq) (out *gen.Err
 		return
 	}
 
-	// Linux specific cleanup to fix "netlink receive: file exists" (nftables/TUN conflict)
-	if runtime.GOOS == "linux" {
-		linuxNetworkCleanup()
-	}
-
 	if *in.NeedExtraProcess {
 		args, e := shlex.Split(in.GetExtraProcessArgs())
 		if e != nil {
@@ -319,7 +314,13 @@ func (s *server) Test(ctx context.Context, in *gen.TestReq) (*gen.TestResp, erro
 	if maxConcurrency >= 500 || maxConcurrency == 0 {
 		maxConcurrency = test_utils.MaxConcurrentTests
 	}
-	results := test_utils.BatchURLTest(test_utils.TestCtx, testInstance, outboundTags, *in.Url, int(maxConcurrency), twice, time.Duration(*in.TestTimeoutMs)*time.Millisecond)
+
+	// Create a per-operation context instead of using the global reusable context
+	// This prevents "operation canceled" errors when StopTest() cancels the global context
+	testOpCtx, testOpCancel := context.WithCancel(context.Background())
+	defer testOpCancel()
+
+	results := test_utils.BatchURLTest(testOpCtx, testInstance, outboundTags, *in.Url, int(maxConcurrency), twice, time.Duration(*in.TestTimeoutMs)*time.Millisecond)
 
 	res := make([]*gen.URLTestResp, 0)
 	for idx, data := range results {

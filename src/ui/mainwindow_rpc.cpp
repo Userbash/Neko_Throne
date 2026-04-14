@@ -1,3 +1,4 @@
+#include <mutex>
 #include "include/ui/mainwindow.h"
 
 #include "include/dataStore/Database.hpp"
@@ -11,6 +12,7 @@
 #include <QMessageBox>
 #include <QSemaphore>
 #include <QTimer>
+#include <QtConcurrent>
 
 #include "include/configs/generate.h"
 #include "include/sys/Process.hpp"
@@ -43,13 +45,13 @@ void MainWindow::setup_rpc() {
         MW_show_log(QString("[ProxyState] Kill switch %1").arg(active ? "ACTIVATED" : "deactivated"));
     });
 
-    // Looper
-    runOnNewThread([=] { Stats::trafficLooper->Loop(); });
-    runOnNewThread([=] {Stats::connection_lister->Loop(); });
+    // Refresh traffic
+    Stats::trafficLooper->m_future = QtConcurrent::run([=] { Stats::trafficLooper->Loop(); });
+    Stats::connection_lister->m_future = QtConcurrent::run([=] {Stats::connection_lister->Loop(); });
 }
 
 void MainWindow::runURLTest(const QString& config, const QString& xrayConfig, bool useDefault, const QStringList& outboundTags, const QMap<QString, int>& tag2entID, int entID) {
-    if (stopSpeedtest.load()) {
+    if (shouldStopSpeedtest()) {
         MW_show_log(tr("Profile test aborted"));
         return;
     }
@@ -66,12 +68,19 @@ void MainWindow::runURLTest(const QString& config, const QString& xrayConfig, bo
     req.xray_config = xrayConfig.toStdString();
     req.need_xray = !xrayConfig.isEmpty();
 
-    std::atomic<bool> testFinished{false};
-    QSemaphore pollingDone(0);
-    runOnNewThread([&,this]
+    // Create TestState struct with shared_ptr to safely pass state to the polling thread
+    struct TestState {
+        std::atomic<bool> testFinished{false};
+        QSemaphore pollingDone{0};
+        QMap<QString, int> tag2entIDCopy;
+    };
+    auto testState = std::make_shared<TestState>();
+    testState->tag2entIDCopy = tag2entID;
+
+    runOnNewThread([testState, this]()
     {
         bool ok;
-        while (!testFinished.load())
+        while (!testState->testFinished.load())
         {
             QThread::msleep(200);
             auto resp = defaultClient->QueryURLTest(&ok);
@@ -84,8 +93,8 @@ void MainWindow::runURLTest(const QString& config, const QString& xrayConfig, bo
             for (const auto& res : resp.results)
             {
                 int entid = -1;
-                if (!tag2entID.empty()) {
-                    entid = res.outbound_tag.has_value() && tag2entID.count(QString::fromStdString(res.outbound_tag.value())) > 0 ? tag2entID[QString::fromStdString(res.outbound_tag.value())] : -1;
+                if (!testState->tag2entIDCopy.empty()) {
+                    entid = res.outbound_tag.has_value() && testState->tag2entIDCopy.count(QString::fromStdString(res.outbound_tag.value())) > 0 ? testState->tag2entIDCopy[QString::fromStdString(res.outbound_tag.value())] : -1;
                 }
                 if (entid == -1) {
                     continue;
@@ -95,7 +104,7 @@ void MainWindow::runURLTest(const QString& config, const QString& xrayConfig, bo
                     continue;
                 }
                 if (res.error.has_value() && res.error.value().empty()) {
-                ent->latency = res.latency_ms.has_value() ? res.latency_ms.value() : -1;
+                    ent->latency = res.latency_ms.has_value() ? res.latency_ms.value() : -1;
                 } else {
                     if (res.error.has_value() && (QString::fromStdString(res.error.value()).contains("test aborted") ||
                         QString::fromStdString(res.error.value()).contains("context canceled"))) ent->latency=0;
@@ -109,17 +118,17 @@ void MainWindow::runURLTest(const QString& config, const QString& xrayConfig, bo
             }
             if (needRefresh)
             {
-                runOnUiThread([=,this]{
+                runOnUiThread([this]{
                     refresh_proxy_list();
                 });
             }
         }
-        pollingDone.release(1);
+        testState->pollingDone.release(1);
     });
     bool rpcOK;
     auto result = defaultClient->Test(&rpcOK, req);
-    testFinished.store(true);
-    pollingDone.acquire();
+    testState->testFinished.store(true);
+    testState->pollingDone.acquire();
     //
     if (!rpcOK || result.results.empty()) return;
 
@@ -162,7 +171,7 @@ void MainWindow::urltest_current_group(const QList<std::shared_ptr<Configs::Prox
     }
 
     runOnNewThread([this, profiles]() {
-        stopSpeedtest.store(false);
+        setSpeedtestStop(false);
         auto speedTestFunc = [=, this](const QList<std::shared_ptr<Configs::ProxyEntity>>& profileSlice) {
             auto buildObject = Configs::BuildTestConfig(profileSlice);
             if (!buildObject->error.isEmpty()) {
@@ -176,7 +185,7 @@ void MainWindow::urltest_current_group(const QList<std::shared_ptr<Configs::Prox
                 auto configStr = buildObject->fullConfigs[entID];
                 auto func = [this, &counter, testCount, configStr, entID]() {
                     runURLTest(configStr, "", true, {}, {}, entID);
-                    if (++counter == testCount) {
+                    if (counter.fetch_add(1) + 1 == testCount) {
                         speedtestRunning.unlock();
                     }
                 };
@@ -186,7 +195,7 @@ void MainWindow::urltest_current_group(const QList<std::shared_ptr<Configs::Prox
             if (!buildObject->outboundTags.empty()) {
                 auto func = [this, buildObject, &counter, testCount]() {
                     runURLTest(QJsonObject2QString(buildObject->coreConfig, false),QJsonObject2QString(buildObject->xrayConfig, false), false, buildObject->outboundTags, buildObject->tag2entID);
-                    if (++counter == testCount) {
+                    if (counter.fetch_add(1) + 1 == testCount) {
                         speedtestRunning.unlock();
                     }
                 };
@@ -201,7 +210,7 @@ void MainWindow::urltest_current_group(const QList<std::shared_ptr<Configs::Prox
             });
         };
         for (int i=0;i<profiles.length();i+=100) {
-            if (stopSpeedtest.load()) break;
+            if (shouldStopSpeedtest()) break;
             auto profileSlice = profiles.mid(i, 100);
             speedTestFunc(profileSlice);
         }
@@ -211,7 +220,7 @@ void MainWindow::urltest_current_group(const QList<std::shared_ptr<Configs::Prox
 }
 
 void MainWindow::stopTests() {
-    stopSpeedtest.store(true);
+    setSpeedtestStop(true);
     bool ok;
     defaultClient->StopTests(&ok);
 
@@ -260,7 +269,7 @@ void MainWindow::speedtest_current_group(const QList<std::shared_ptr<Configs::Pr
     }
 
     runOnNewThread([this, profiles, testCurrent]() {
-        stopSpeedtest.store(false);
+        setSpeedtestStop(false);
         if (!testCurrent)
         {
             auto speedTestFunc = [=, this](const QList<std::shared_ptr<Configs::ProxyEntity>>& profileSlice) {
@@ -280,7 +289,7 @@ void MainWindow::speedtest_current_group(const QList<std::shared_ptr<Configs::Pr
                 }
             };
             for (int i=0;i<profiles.length();i+=100) {
-                if (stopSpeedtest.load()) break;
+                if (shouldStopSpeedtest()) break;
                 auto profileSlice = profiles.mid(i, 100);
                 speedTestFunc(profileSlice);
             }
@@ -310,21 +319,27 @@ void MainWindow::querySpeedtest(QDateTime& lastProxyListUpdate, const QMap<QStri
     {
         return;
     }
+    int profileId = profile->id;  // Capture ID for validation
     bool shouldRefreshList = res.result.has_value() && res.result.value().error.has_value() && res.result.value().error.value().empty() && res.result.value().cancelled.has_value() && !res.result.value().cancelled.value() && lastProxyListUpdate.msecsTo(QDateTime::currentDateTime()) >= 500;
     runOnUiThread([=, this]
     {
+        // Re-validate profile pointer inside lambda to prevent use-after-free
+        auto validProfile = Configs::profileManager->GetProfile(profileId);
+        if (!validProfile) {
+            return;
+        }
         showSpeedtestData = true;
-        currentSptProfileName = profile->outbound->name;
+        currentSptProfileName = validProfile->outbound->name;
         if (res.result.has_value()) currentTestResult = res.result.value();
         UpdateDataView();
 
         if (shouldRefreshList && res.result.has_value())
         {
-            if (res.result.value().dl_speed.has_value() && !res.result.value().dl_speed.value().empty()) profile->dl_speed = QString::fromStdString(res.result.value().dl_speed.value());
-            if (res.result.value().ul_speed.has_value() && !res.result.value().ul_speed.value().empty()) profile->ul_speed = QString::fromStdString(res.result.value().ul_speed.value());
-            if (res.result.value().latency.has_value() && profile->latency <= 0 && res.result.value().latency.value() > 0) profile->latency = res.result.value().latency.value();
-            if (res.result.value().server_country.has_value() && !res.result.value().server_country.value().empty()) profile->test_country = CountryNameToCode(QString::fromStdString(res.result.value().server_country.value()));
-            refresh_proxy_list(profile->id);
+            if (res.result.value().dl_speed.has_value() && !res.result.value().dl_speed.value().empty()) validProfile->dl_speed = QString::fromStdString(res.result.value().dl_speed.value());
+            if (res.result.value().ul_speed.has_value() && !res.result.value().ul_speed.value().empty()) validProfile->ul_speed = QString::fromStdString(res.result.value().ul_speed.value());
+            if (res.result.value().latency.has_value() && validProfile->latency <= 0 && res.result.value().latency.value() > 0) validProfile->latency = res.result.value().latency.value();
+            if (res.result.value().server_country.has_value() && !res.result.value().server_country.value().empty()) validProfile->test_country = CountryNameToCode(QString::fromStdString(res.result.value().server_country.value()));
+            refresh_proxy_list(validProfile->id);
         }
     });
     if (shouldRefreshList) {
@@ -347,13 +362,19 @@ void MainWindow::queryCountryTest(const QMap<QString, int>& tag2entID, bool test
         {
             return;
         }
+        int profileId = profile->id;  // Capture ID for validation
         runOnUiThread([=, this]
         {
+            // Re-validate profile pointer inside lambda to prevent use-after-free
+            auto validProfile = Configs::profileManager->GetProfile(profileId);
+            if (!validProfile) {
+                return;
+            }
             if (result.error.has_value() && result.error.value().empty() && result.cancelled.has_value() && !result.cancelled.value())
             {
-                if (result.latency.has_value() && profile->latency <= 0 && result.latency.value() > 0) profile->latency = result.latency.value();
-                if (result.server_country.has_value() && !result.server_country.value().empty()) profile->test_country = CountryNameToCode(QString::fromStdString(result.server_country.value()));
-                refresh_proxy_list(profile->id);
+                if (result.latency.has_value() && validProfile->latency <= 0 && result.latency.value() > 0) validProfile->latency = result.latency.value();
+                if (result.server_country.has_value() && !result.server_country.value().empty()) validProfile->test_country = CountryNameToCode(QString::fromStdString(result.server_country.value()));
+                refresh_proxy_list(validProfile->id);
             }
         });
     }
@@ -362,7 +383,7 @@ void MainWindow::queryCountryTest(const QMap<QString, int>& tag2entID, bool test
 
 void MainWindow::runSpeedTest(const QString& config, const QString& xrayConfig, bool useDefault, bool testCurrent, const QStringList& outboundTags, const QMap<QString, int>& tag2entID, int entID)
 {
-    if (stopSpeedtest.load()) {
+    if (shouldStopSpeedtest()) {
         MW_show_log(tr("Profile speed test aborted"));
         return;
     }
@@ -497,6 +518,11 @@ void MainWindow::profile_start(int _id) {
     auto group = Configs::profileManager->GetGroup(ent->gid);
     if (group == nullptr || group->archive) return;
 
+    if (!Configs::IsValid(ent)) {
+        MessageBoxWarning(tr("Invalid profile"), tr("The selected profile is invalid or corrupted. Please check its settings."));
+        return;
+    }
+
     auto result = Configs::BuildSingBoxConfig(ent);
     if (!result->error.isEmpty()) {
         MessageBoxWarning(tr("BuildConfig return error"), result->error);
@@ -515,11 +541,16 @@ void MainWindow::profile_start(int _id) {
         if (ent->type == "extracore")
         {
             req.need_extra_process = true;
-            req.extra_process_path = result->extraCoreData->path.toStdString();
-            req.extra_process_args = result->extraCoreData->args.toStdString();
-            req.extra_process_conf = result->extraCoreData->config.toStdString();
-            req.extra_process_conf_dir = result->extraCoreData->configDir.toStdString();
-            req.extra_no_out = result->extraCoreData->noLog;
+            if (result && result->extraCoreData) {
+                req.extra_process_path = result->extraCoreData->path.toStdString();
+                req.extra_process_args = result->extraCoreData->args.toStdString();
+                req.extra_process_conf = result->extraCoreData->config.toStdString();
+                req.extra_process_conf_dir = result->extraCoreData->configDir.toStdString();
+                req.extra_no_out = result->extraCoreData->noLog;
+            } else {
+                qWarning() << "extraCoreData is null for extracore type";
+                return false;
+            }
         }
         //
         bool rpcOK;
@@ -555,15 +586,21 @@ void MainWindow::profile_start(int _id) {
                 });
                 return false;
             }
-            runOnUiThread([=,this] { MessageBoxWarning("LoadConfig return error", error); });
+            runOnUiThread([=,this] {
+                auto mw = GetMainWindow();
+                if (mw) MessageBoxWarning("LoadConfig return error", error);
+            });
             return false;
         }
         //
-        Stats::trafficLooper->proxy = std::make_shared<Stats::TrafficData>("proxy");
-        Stats::trafficLooper->direct = std::make_shared<Stats::TrafficData>("direct");
-        Stats::trafficLooper->items = result->outboundStats;
-        Stats::trafficLooper->isChain = result->outboundStats.size() > 2; // more than proxy+direct means a real chain
-        Stats::trafficLooper->loop_enabled = true;
+        {
+            QMutexLocker locker(&Stats::trafficLooper->loop_mutex);
+            Stats::trafficLooper->proxy = std::make_shared<Stats::TrafficData>("proxy");
+            Stats::trafficLooper->direct = std::make_shared<Stats::TrafficData>("direct");
+            Stats::trafficLooper->items = result->outboundStats;
+            Stats::trafficLooper->isChain = result->outboundStats.size() > 2; // more than proxy+direct means a real chain
+            Stats::trafficLooper->loop_enabled = true;
+        }
         Stats::connection_lister->suspend = false;
 
         // IPv6 leak prevention when TUN is active and IPv6 is disabled
@@ -610,15 +647,15 @@ void MainWindow::profile_start(int _id) {
     }
 
     // timeout message (non-modal to avoid blocking the UI thread)
-    auto restartMsgbox = new QMessageBox(QMessageBox::Question, software_name, tr("If there is no response for a long time, it is recommended to restart the software."),
+    QPointer<QMessageBox> restartMsgbox = new QMessageBox(QMessageBox::Question, software_name, tr("If there is no response for a long time, it is recommended to restart the software."),
                                          QMessageBox::Yes | QMessageBox::No, this);
     restartMsgbox->setModal(false);
     connect(restartMsgbox, &QMessageBox::accepted, this, [=,this] { MW_dialog_message("", "RestartProgram"); });
     connect(restartMsgbox, &QMessageBox::rejected, restartMsgbox, &QObject::deleteLater);
-    auto restartMsgboxShowTimer = new QTimer(this);
+    QPointer<QTimer> restartMsgboxShowTimer = new QTimer(this);
     restartMsgboxShowTimer->setSingleShot(true);
     connect(restartMsgboxShowTimer, &QTimer::timeout, this, [restartMsgbox] {
-        restartMsgbox->show();
+        if (!restartMsgbox.isNull()) restartMsgbox->show();
     });
     restartMsgboxShowTimer->start(10000);
 
@@ -640,10 +677,14 @@ void MainWindow::profile_start(int _id) {
         mu_starting.unlock();
         // cancel timeout
         runOnUiThread([=,this] {
-            restartMsgboxShowTimer->stop();
-            restartMsgboxShowTimer->deleteLater();
-            restartMsgbox->close();
-            restartMsgbox->deleteLater();
+            if (!restartMsgboxShowTimer.isNull()) {
+                restartMsgboxShowTimer->stop();
+                restartMsgboxShowTimer->deleteLater();
+            }
+            if (!restartMsgbox.isNull()) {
+                restartMsgbox->close();
+                restartMsgbox->deleteLater();
+            }
         });
     });
 }
@@ -681,7 +722,10 @@ void MainWindow::profile_stop(bool crash, bool block, bool manual) {
             bool rpcOK;
             QString error = defaultClient->Stop(&rpcOK);
             if (rpcOK && !error.isEmpty()) {
-                runOnUiThread([=,this] { MessageBoxWarning(tr("Stop return error"), error); });
+                runOnUiThread([=,this] {
+                    auto mw = GetMainWindow();
+                    if (mw) MessageBoxWarning(tr("Stop return error"), error);
+                });
                 return false;
             } else if (!rpcOK) {
                 return false;
