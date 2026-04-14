@@ -1334,11 +1334,11 @@ void MainWindow::UpdateDataView(bool force)
     "</div>"
     "<p style='text-align:center;margin:0;'>Server: %4%5, %6</p>"
         ).arg(currentSptProfileName,
-            currentTestResult.dl_speed.value().c_str(),
-            currentTestResult.ul_speed.value().c_str(),
-            CountryCodeToFlag(CountryNameToCode(QString::fromStdString(currentTestResult.server_country.value()))),
-            currentTestResult.server_country.value().c_str(),
-            currentTestResult.server_name.value().c_str());
+            currentTestResult.dl_speed.has_value() ? currentTestResult.dl_speed.value().c_str() : "",
+            currentTestResult.ul_speed.has_value() ? currentTestResult.ul_speed.value().c_str() : "",
+            CountryCodeToFlag(CountryNameToCode(QString::fromStdString(currentTestResult.server_country.has_value() ? currentTestResult.server_country.value() : ""))),
+            currentTestResult.server_country.has_value() ? currentTestResult.server_country.value().c_str() : "",
+            currentTestResult.server_name.has_value() ? currentTestResult.server_name.value().c_str() : "");
     }
     ui->data_view->setHtml(html);
     lastUpdated = QDateTime::currentDateTime();
