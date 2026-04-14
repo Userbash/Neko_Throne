@@ -85,7 +85,7 @@ void MainWindow::runURLTest(const QString& config, const QString& xrayConfig, bo
             {
                 int entid = -1;
                 if (!tag2entID.empty()) {
-                    entid = tag2entID.count(QString::fromStdString(res.outbound_tag.value())) == 0 ? -1 : tag2entID[QString::fromStdString(res.outbound_tag.value())];
+                    entid = res.outbound_tag.has_value() && tag2entID.count(QString::fromStdString(res.outbound_tag.value())) > 0 ? tag2entID[QString::fromStdString(res.outbound_tag.value())] : -1;
                 }
                 if (entid == -1) {
                     continue;
@@ -94,14 +94,14 @@ void MainWindow::runURLTest(const QString& config, const QString& xrayConfig, bo
                 if (ent == nullptr) {
                     continue;
                 }
-                if (res.error.value().empty()) {
-                ent->latency = res.latency_ms.value();
+                if (res.error.has_value() && res.error.value().empty()) {
+                ent->latency = res.latency_ms.has_value() ? res.latency_ms.value() : -1;
                 } else {
-                    if (QString::fromStdString(res.error.value()).contains("test aborted") ||
-                        QString::fromStdString(res.error.value()).contains("context canceled")) ent->latency=0;
+                    if (res.error.has_value() && (QString::fromStdString(res.error.value()).contains("test aborted") ||
+                        QString::fromStdString(res.error.value()).contains("context canceled"))) ent->latency=0;
                     else {
                         ent->latency = -1;
-                        MW_show_log(tr("[%1] test error: %2").arg(ent->outbound->DisplayTypeAndName(), QString::fromStdString(res.error.value())));
+                        if (res.error.has_value()) MW_show_log(tr("[%1] test error: %2").arg(ent->outbound->DisplayTypeAndName(), QString::fromStdString(res.error.value())));
                     }
                 }
                 ent->Save();
@@ -125,7 +125,7 @@ void MainWindow::runURLTest(const QString& config, const QString& xrayConfig, bo
 
     for (const auto &res: result.results) {
         if (!tag2entID.empty()) {
-            entID = tag2entID.count(QString::fromStdString(res.outbound_tag.value())) == 0 ? -1 : tag2entID[QString::fromStdString(res.outbound_tag.value())];
+            entID = res.outbound_tag.has_value() && tag2entID.count(QString::fromStdString(res.outbound_tag.value())) > 0 ? tag2entID[QString::fromStdString(res.outbound_tag.value())] : -1;
         }
         if (entID == -1) {
             MW_show_log(tr("Something is very wrong, the subject ent cannot be found!"));
@@ -138,14 +138,14 @@ void MainWindow::runURLTest(const QString& config, const QString& xrayConfig, bo
             continue;
         }
 
-        if (res.error.value().empty()) {
-            ent->latency = res.latency_ms.value();
+        if (res.error.has_value() && res.error.value().empty()) {
+            ent->latency = res.latency_ms.has_value() ? res.latency_ms.value() : -1;
         } else {
-            if (QString::fromStdString(res.error.value()).contains("test aborted") ||
-                QString::fromStdString(res.error.value()).contains("context canceled")) ent->latency=0;
+            if (res.error.has_value() && (QString::fromStdString(res.error.value()).contains("test aborted") ||
+                QString::fromStdString(res.error.value()).contains("context canceled"))) ent->latency=0;
             else {
                 ent->latency = -1;
-                MW_show_log(tr("[%1] test error: %2").arg(ent->outbound->DisplayTypeAndName(), QString::fromStdString(res.error.value())));
+                if (res.error.has_value()) MW_show_log(tr("[%1] test error: %2").arg(ent->outbound->DisplayTypeAndName(), QString::fromStdString(res.error.value())));
             }
         }
         ent->Save();
@@ -233,11 +233,11 @@ void MainWindow::url_test_current() {
         auto result = defaultClient->Test(&rpcOK, req);
         if (!rpcOK || result.results.empty()) return;
 
-        auto latency = result.results[0].latency_ms.value();
+        auto latency = result.results[0].latency_ms.has_value() ? result.results[0].latency_ms.value() : -1;
         last_test_time = QDateTime::currentSecsSinceEpoch();
 
         runOnUiThread([=,this] {
-            if (!result.results[0].error.value().empty()) {
+            if (result.results[0].error.has_value() && !result.results[0].error.value().empty()) {
                 MW_show_log(QString("UrlTest error: %1").arg(QString::fromStdString(result.results[0].error.value())));
             }
             if (latency <= 0) {
@@ -301,29 +301,29 @@ void MainWindow::querySpeedtest(QDateTime& lastProxyListUpdate, const QMap<QStri
 {
     bool ok;
     auto res = defaultClient->QueryCurrentSpeedTests(&ok);
-    if (!ok || !res.is_running.value())
+    if (!ok || !res.is_running.has_value() || !res.is_running.value())
     {
         return;
     }
-    auto profile = testCurrent ? running : Configs::profileManager->GetProfile(tag2entID[QString::fromStdString(res.result.value().outbound_tag.value())]);
+    auto profile = testCurrent ? running : (res.result.has_value() && res.result.value().outbound_tag.has_value() && tag2entID.count(QString::fromStdString(res.result.value().outbound_tag.value())) > 0 ? Configs::profileManager->GetProfile(tag2entID[QString::fromStdString(res.result.value().outbound_tag.value())]) : nullptr);
     if (profile == nullptr)
     {
         return;
     }
-    bool shouldRefreshList = res.result.value().error.value().empty() && !res.result.value().cancelled.value() && lastProxyListUpdate.msecsTo(QDateTime::currentDateTime()) >= 500;
+    bool shouldRefreshList = res.result.has_value() && res.result.value().error.has_value() && res.result.value().error.value().empty() && res.result.value().cancelled.has_value() && !res.result.value().cancelled.value() && lastProxyListUpdate.msecsTo(QDateTime::currentDateTime()) >= 500;
     runOnUiThread([=, this]
     {
         showSpeedtestData = true;
         currentSptProfileName = profile->outbound->name;
-        currentTestResult = res.result.value();
+        if (res.result.has_value()) currentTestResult = res.result.value();
         UpdateDataView();
 
-        if (shouldRefreshList)
+        if (shouldRefreshList && res.result.has_value())
         {
-            if (!res.result.value().dl_speed.value().empty()) profile->dl_speed = QString::fromStdString(res.result.value().dl_speed.value());
-            if (!res.result.value().ul_speed.value().empty()) profile->ul_speed = QString::fromStdString(res.result.value().ul_speed.value());
-            if (profile->latency <= 0 && res.result.value().latency.value() > 0) profile->latency = res.result.value().latency.value();
-            if (!res.result.value().server_country.value().empty()) profile->test_country = CountryNameToCode(QString::fromStdString(res.result.value().server_country.value()));
+            if (res.result.value().dl_speed.has_value() && !res.result.value().dl_speed.value().empty()) profile->dl_speed = QString::fromStdString(res.result.value().dl_speed.value());
+            if (res.result.value().ul_speed.has_value() && !res.result.value().ul_speed.value().empty()) profile->ul_speed = QString::fromStdString(res.result.value().ul_speed.value());
+            if (res.result.value().latency.has_value() && profile->latency <= 0 && res.result.value().latency.value() > 0) profile->latency = res.result.value().latency.value();
+            if (res.result.value().server_country.has_value() && !res.result.value().server_country.value().empty()) profile->test_country = CountryNameToCode(QString::fromStdString(res.result.value().server_country.value()));
             refresh_proxy_list(profile->id);
         }
     });
@@ -342,17 +342,17 @@ void MainWindow::queryCountryTest(const QMap<QString, int>& tag2entID, bool test
     }
     for (const auto& result : res.results)
     {
-        auto profile = testCurrent ? running : Configs::profileManager->GetProfile(tag2entID[QString::fromStdString(result.outbound_tag.value())]);
+        auto profile = testCurrent ? running : (result.outbound_tag.has_value() && tag2entID.count(QString::fromStdString(result.outbound_tag.value())) > 0 ? Configs::profileManager->GetProfile(tag2entID[QString::fromStdString(result.outbound_tag.value())]) : nullptr);
         if (profile == nullptr)
         {
             return;
         }
         runOnUiThread([=, this]
         {
-            if (result.error.value().empty() && !result.cancelled.value())
+            if (result.error.has_value() && result.error.value().empty() && result.cancelled.has_value() && !result.cancelled.value())
             {
-                if (profile->latency <= 0 && result.latency.value() > 0) profile->latency = result.latency.value();
-                if (!result.server_country.value().empty()) profile->test_country = CountryNameToCode(QString::fromStdString(result.server_country.value()));
+                if (result.latency.has_value() && profile->latency <= 0 && result.latency.value() > 0) profile->latency = result.latency.value();
+                if (result.server_country.has_value() && !result.server_country.value().empty()) profile->test_country = CountryNameToCode(QString::fromStdString(result.server_country.value()));
                 refresh_proxy_list(profile->id);
             }
         });
@@ -418,7 +418,7 @@ void MainWindow::runSpeedTest(const QString& config, const QString& xrayConfig, 
     for (const auto &res: result.results) {
         if (testCurrent) entID = running ? running->id : -1;
         else {
-            entID = tag2entID.count(QString::fromStdString(res.outbound_tag.value())) == 0 ? -1 : tag2entID[QString::fromStdString(res.outbound_tag.value())];
+            entID = res.outbound_tag.has_value() && tag2entID.count(QString::fromStdString(res.outbound_tag.value())) > 0 ? tag2entID[QString::fromStdString(res.outbound_tag.value())] : -1;
         }
         if (entID == -1) {
             MW_show_log(tr("Something is very wrong, the subject ent cannot be found!"));
@@ -431,19 +431,19 @@ void MainWindow::runSpeedTest(const QString& config, const QString& xrayConfig, 
             continue;
         }
 
-        if (res.cancelled.value()) continue;
+        if (res.cancelled.has_value() && res.cancelled.value()) continue;
 
-        if (res.error.value().empty()) {
-            ent->dl_speed = QString::fromStdString(res.dl_speed.value());
-            ent->ul_speed = QString::fromStdString(res.ul_speed.value());
-            if (ent->latency <= 0 && res.latency.value() > 0) ent->latency = res.latency.value();
-            if (!res.server_country.value().empty()) ent->test_country = CountryNameToCode(QString::fromStdString(res.server_country.value()));
+        if (res.error.has_value() && res.error.value().empty()) {
+            ent->dl_speed = res.dl_speed.has_value() ? QString::fromStdString(res.dl_speed.value()) : "N/A";
+            ent->ul_speed = res.ul_speed.has_value() ? QString::fromStdString(res.ul_speed.value()) : "N/A";
+            if (res.latency.has_value() && ent->latency <= 0 && res.latency.value() > 0) ent->latency = res.latency.value();
+            if (res.server_country.has_value() && !res.server_country.value().empty()) ent->test_country = CountryNameToCode(QString::fromStdString(res.server_country.value()));
         } else {
             ent->dl_speed = "N/A";
             ent->ul_speed = "N/A";
             ent->latency = -1;
             ent->test_country = "";
-            MW_show_log(tr("[%1] speed test error: %2").arg(ent->outbound->DisplayTypeAndName(), QString::fromStdString(res.error.value())));
+            if (res.error.has_value()) MW_show_log(tr("[%1] speed test error: %2").arg(ent->outbound->DisplayTypeAndName(), QString::fromStdString(res.error.value())));
         }
         ent->Save();
     }
