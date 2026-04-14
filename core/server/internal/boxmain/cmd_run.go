@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	runtimeDebug "runtime/debug"
+	"sync"
 	"syscall"
 	"time"
 
@@ -44,7 +45,12 @@ func parseConfig(ctx context.Context, configContent []byte) (*option.Options, er
 	)
 	options, err := json.UnmarshalExtendedContext[option.Options](ctx, configContent)
 	if err != nil {
-		return nil, E.Cause(err, "decode config at ", string(configContent))
+		// Limit config size in error message to prevent log overflow (max 512 bytes)
+		configPreview := string(configContent)
+		if len(configContent) > 512 {
+			configPreview = configPreview[:512] + "... (truncated)"
+		}
+		return nil, E.Cause(err, "decode config failed (size: %d bytes): %s", len(configContent), configPreview)
 	}
 	return &options, nil
 }
@@ -79,12 +85,22 @@ func Create(configContent []byte, disableDNS bool) (*boxbox.Box, context.CancelF
 
 	osSignals := make(chan os.Signal, 1)
 	signal.Notify(osSignals, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+
+	// Use WaitGroup to synchronize signal handler goroutine cleanup
+	var signalWg sync.WaitGroup
+	signalWg.Add(1)
+
 	defer func() {
 		signal.Stop(osSignals)
+		// Wait for signal goroutine to finish before closing channel
+		// This prevents "send on closed channel" panic
+		signalWg.Wait()
 		close(osSignals)
 	}()
+
 	startCtx, finishStart := context.WithCancel(context.Background())
 	go func() {
+		defer signalWg.Done()
 		_, loaded := <-osSignals
 		if loaded {
 			cancel()
@@ -103,7 +119,13 @@ func Create(configContent []byte, disableDNS bool) (*boxbox.Box, context.CancelF
 func run() error {
 	osSignals := make(chan os.Signal, 1)
 	signal.Notify(osSignals, os.Interrupt, syscall.SIGTERM)
-	defer signal.Stop(osSignals)
+	defer func() {
+		// Proper cleanup: stop signal notification and close channel
+		// Wrapped in defer to guarantee execution even on panic
+		signal.Stop(osSignals)
+		close(osSignals)
+	}()
+
 	for {
 		instance, cancel, err := Create([]byte{}, false)
 		if err != nil {
@@ -111,7 +133,14 @@ func run() error {
 		}
 		runtimeDebug.FreeOSMemory()
 		for {
-			osSignal := <-osSignals
+			// Safe read from signal channel
+			// If osSignals is closed, this will receive zero value and loaded=false
+			osSignal, loaded := <-osSignals
+			if !loaded {
+				// Channel closed, exit gracefully
+				return nil
+			}
+
 			cancel()
 			closeCtx, closed := context.WithCancel(context.Background())
 			go closeMonitor(closeCtx)

@@ -64,3 +64,5 @@ namespace Stats
 
     extern ConnectionLister* connection_lister;
 }
+
+Q_DECLARE_METATYPE(Stats::ConnectionMetadata)

@@ -1,5 +1,5 @@
-//go:build linux
-// +build linux
+//go:build !linux
+// +build !linux
 
 package main
 
@@ -23,7 +23,6 @@ import (
 
 	_ "ThroneCore/internal/distro/all"
 	C "github.com/sagernet/sing-box/constant"
-	"golang.org/x/sys/unix"
 )
 
 func RunCore() {
@@ -41,22 +40,14 @@ func RunCore() {
 			state, err := parent.Wait()
 			log.Fatalln("parent exited:", state, err)
 		} else {
-			// Linux: Use prctl(PR_SET_PDEATHSIG) for event-driven parent death notification
-			// instead of polling every 10 seconds. This eliminates 10-second delay on parent crash.
-			if err := unix.Prctl(unix.PR_SET_PDEATHSIG, uintptr(syscall.SIGTERM), 0, 0, 0); err != nil {
-				log.Println("warning: prctl(PR_SET_PDEATHSIG) failed, falling back to polling:", err)
-				// Fallback: Polling with 1-second interval instead of 10 (faster crash detection)
-				for {
-					time.Sleep(time.Second)
-					err = parent.Signal(syscall.Signal(0))
-					if err != nil {
-						log.Fatalln("parent exited:", err)
-					}
+			// macOS/other Unix: Use polling for parent death detection
+			// (unix.Prctl is Linux-only, so we use polling fallback)
+			for {
+				time.Sleep(time.Second)
+				err = parent.Signal(syscall.Signal(0))
+				if err != nil {
+					log.Fatalln("parent exited:", err)
 				}
-			} else {
-				// If prctl succeeded, block until SIGTERM is received
-				// Parent death will trigger automatic termination of this process
-				select {}
 			}
 		}
 	}()
@@ -87,11 +78,9 @@ func main() {
 			runtimeDebug.PrintStack()
 
 			// Notify parent process (if exists) that core crashed
-			// This ensures parent detects the crash immediately instead of waiting
 			ppid := os.Getppid()
 			if ppid > 1 {
 				if parent, err := os.FindProcess(ppid); err == nil {
-					// Send SIGTERM to parent to signal abnormal termination
 					_ = parent.Signal(syscall.SIGTERM)
 				}
 			}
@@ -100,32 +89,10 @@ func main() {
 		}
 	}()
 
-	// DEBUG: Manual panic testing (disabled for production builds)
-	// if len(os.Args) > 1 && os.Args[1] == "--crash-now" {
-	// 	fmt.Println("DEBUG: Triggering Go panic...")
-	// 	panic("Manual panic for testing")
-	// }
-
 	fmt.Println("sing-box:", C.Version)
 	fmt.Println("Xray-core:", core.Version())
 	fmt.Println()
 	runtimeDebug.SetMemoryLimit(2 * 1024 * 1024 * 1024) // 2GB
-
-	// Memory monitoring (disabled for CI environments - may cause false positives)
-	// Uncomment below if needed for local development
-	/*
-		go func() {
-			var memStats runtime.MemStats
-			for {
-				time.Sleep(2 * time.Second)
-				runtime.ReadMemStats(&memStats)
-				if memStats.HeapAlloc > 1.5*1024*1024*1024 {
-					// too much memory for sing-box, crash
-					panic("Memory has reached 1.5 GB, this is not normal")
-				}
-			}
-		}()
-	*/
 
 	test_utils.TestCtx, test_utils.CancelTests = context.WithCancel(context.Background())
 	RunCore()

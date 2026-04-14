@@ -5,6 +5,7 @@
 #include <QDialog>
 #include <QStringListModel>
 #include <QShortcut>
+#include <memory>
 
 #include "include/dataStore/RouteEntity.h"
 #include "3rdparty/qv2ray/v2/ui/QvAutoCompleteTextEdit.hpp"

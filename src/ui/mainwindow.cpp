@@ -61,14 +61,11 @@
 #include "include/global/DeviceDetailsHelper.hpp"
 #include "include/api/CoreVersionParser.hpp"
 
-#include "include/global/TraceHelper.hpp"
-
 void UI_InitMainWindow() {
     mainwindow = new MainWindow;
 }
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
-    THRONE_TRACE("MainWindow Startup");
     mainwindow = this;
     setAcceptDrops(true);
     QPointer<MainWindow> safeThis(this);

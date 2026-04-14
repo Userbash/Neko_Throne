@@ -201,23 +201,23 @@ DialogEditProfile::DialogEditProfile(const QString &_type, int profileOrGroupId,
         this->type = _type;
 
         // load type to combo box
-        LOAD_TYPE("socks")
-        LOAD_TYPE("http")
-        LOAD_TYPE("shadowsocks")
-        LOAD_TYPE("trojan")
-        LOAD_TYPE("vmess")
-        LOAD_TYPE("vless")
+        LOAD_TYPE("socks");
+        LOAD_TYPE("http");
+        LOAD_TYPE("shadowsocks");
+        LOAD_TYPE("trojan");
+        LOAD_TYPE("vmess");
+        LOAD_TYPE("vless");
         ui->type->addItem("VLESS (Xray)", "xrayvless");
-        LOAD_TYPE("hysteria")
-        LOAD_TYPE("tuic")
-        LOAD_TYPE("anytls")
-        LOAD_TYPE("wireguard")
-        LOAD_TYPE("tailscale")
-        LOAD_TYPE("ssh")
+        LOAD_TYPE("hysteria");
+        LOAD_TYPE("tuic");
+        LOAD_TYPE("anytls");
+        LOAD_TYPE("wireguard");
+        LOAD_TYPE("tailscale");
+        LOAD_TYPE("ssh");
         ui->type->addItem(tr("Custom (%1 outbound)").arg(software_core_name), "outbound");
         ui->type->addItem(tr("Custom (%1 config)").arg(software_core_name), "fullconfig");
         ui->type->addItem(tr("Extra Core"), "extracore");
-        LOAD_TYPE("chain")
+        LOAD_TYPE("chain");
 
         // type changed
         connect(ui->type, &QComboBox::currentIndexChanged, this, [=,this](int index) {

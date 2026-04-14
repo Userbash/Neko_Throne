@@ -51,10 +51,11 @@ func To[T any](v T) *T {
 
 func (s *server) Start(ctx context.Context, in *gen.LoadConfigReq) (out *gen.ErrorResp, _ error) {
 	var err error
+	out = &gen.ErrorResp{}
 
 	defer func() {
-		out = &gen.ErrorResp{}
 		if err != nil {
+			// Preserve error response and ensure boxInstance is cleaned up
 			out.Error = To(err.Error())
 			boxInstance = nil
 		}
@@ -70,11 +71,18 @@ func (s *server) Start(ctx context.Context, in *gen.LoadConfigReq) (out *gen.Err
 		for _, f := range files {
 			// Touch file if not exists so we can chown/chmod it
 			if _, err := os.Stat(f); os.IsNotExist(err) {
-				file, _ := os.Create(f)
-				if file != nil {
-					file.Close()
+				// Create file and ensure proper cleanup on error
+				file, createErr := os.Create(f)
+				if createErr != nil {
+					log.Printf("warning: failed to create %s: %v (continuing anyway)", f, createErr)
+					continue
+				}
+				// Strict file descriptor management: ensure Close() is called
+				if closeErr := file.Close(); closeErr != nil {
+					log.Printf("warning: failed to close %s: %v", f, closeErr)
 				}
 			}
+			// Chown/Chmod errors are non-fatal (may fail on some systems)
 			_ = os.Chown(f, uid, gid)
 			_ = os.Chmod(f, 0666)
 		}
@@ -101,6 +109,11 @@ func (s *server) Start(ctx context.Context, in *gen.LoadConfigReq) (out *gen.Err
 			return
 		}
 		if in.ExtraProcessConf != nil {
+			// Strict nil check: ExtraProcessConfDir must be non-nil and non-empty
+			if in.ExtraProcessConfDir == nil || *in.ExtraProcessConfDir == "" {
+				err = errors.New("ExtraProcessConfDir is required when ExtraProcessConf is set")
+				return
+			}
 			extraConfPath := *in.ExtraProcessConfDir + string(os.PathSeparator) + "extra.conf"
 			f, e := os.OpenFile(extraConfPath, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 700)
 			if e != nil {
@@ -214,10 +227,23 @@ func (s *server) Stop(ctx context.Context, in *gen.EmptyReq) (out *gen.ErrorResp
 	}
 
 	if needUnsetDNS {
-		needUnsetDNS = false
-		err := sys.SetSystemDNS("Empty", boxInstance.Network().InterfaceMonitor())
-		if err != nil {
-			log.Println("Failed to unset system DNS:", err)
+		// Retry DNS cleanup up to 3 times before giving up
+		// Only reset flag if cleanup succeeds
+		var dnsErr error
+		for attempt := 1; attempt <= 3; attempt++ {
+			dnsErr = sys.SetSystemDNS("Empty", boxInstance.Network().InterfaceMonitor())
+			if dnsErr == nil {
+				needUnsetDNS = false
+				break
+			}
+			if attempt < 3 {
+				log.Printf("Failed to unset system DNS (attempt %d/3): %v, retrying...", attempt, dnsErr)
+				time.Sleep(time.Millisecond * 100 * time.Duration(attempt))
+			}
+		}
+		if dnsErr != nil {
+			log.Printf("CRITICAL: Failed to unset system DNS after 3 attempts: %v", dnsErr)
+			err = E.Cause(dnsErr, "DNS cleanup failed")
 		}
 	}
 	boxInstance.CloseWithTimeout(instanceCancel, time.Second*2, log.Println, true)
@@ -510,8 +536,29 @@ func linuxNetworkCleanup() {
 	if ipErr == nil {
 		// 2. Interfaces: delete any lingering TUN devices we may have created.
 		// Try the configured name plus common alternates.
-		for _, iface := range []string{"throne-tun", "sing-tun", "singtun0", "tun0", "tun1", "utun0", "utun1"} {
+		// Enhanced: Also attempt to detect and delete TUN interfaces dynamically
+		knownInterfaces := []string{"throne-tun", "sing-tun", "singtun0", "tun0", "tun1", "tun2", "tun3", "utun0", "utun1"}
+
+		// Try to add dynamically discovered TUN interfaces (tun100+, tun_auto, etc)
+		// This helps with systems that auto-allocate TUN device numbers
+		detectProc := exec.Command("ip", "link", "show", "type", "tun")
+		if output, err := detectProc.CombinedOutput(); err == nil {
+			// Parse output to find interface names (format: "5: tun100: <POINTOPOINT,NOARP,UP,LOWER_UP>")
+			for _, line := range strings.Split(string(output), "\n") {
+				parts := strings.Fields(line)
+				if len(parts) >= 2 && (strings.HasPrefix(parts[1], "tun") || strings.HasPrefix(parts[1], "utun")) {
+					// Remove trailing colon from interface name
+					ifaceName := strings.TrimSuffix(parts[1], ":")
+					knownInterfaces = append(knownInterfaces, ifaceName)
+				}
+			}
+		}
+
+		// Delete all identified TUN interfaces
+		for _, iface := range knownInterfaces {
+			// Try to bring interface down first (may fail if already down)
 			_ = exec.Command(ipBin, "link", "set", iface, "down").Run()
+			// Then delete it (will fail silently if doesn't exist)
 			_ = exec.Command(ipBin, "link", "delete", iface).Run()
 		}
 

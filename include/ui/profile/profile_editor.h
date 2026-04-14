@@ -1,6 +1,8 @@
 #pragma once
 
 #include <QPushButton>
+#include <memory>
+#include <functional>
 
 #include "include/dataStore/ProxyEntity.hpp"
 #include "include/global/GuiUtils.hpp"

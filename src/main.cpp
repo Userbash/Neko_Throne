@@ -188,8 +188,6 @@ protected:
     }
 };
 
-#include "include/global/TraceHelper.hpp"
-
 // Helper for clean exit from any point in main()
 void performCleanup() {
     static bool cleaned = false;
@@ -219,7 +217,6 @@ int main(int argc, char* argv[]) {
     if (RUNNING_ON_VALGRIND) {
         fprintf(stderr, "[DIAGNOSTIC] Deep memory tracing detected (Valgrind is active).\n");
     }
-    THRONE_TRACE("App Startup");
     qInstallMessageHandler(myMessageHandler);
     QStringList args;
     for (int i = 0; i < argc; ++i) args << QString::fromLocal8Bit(argv[i]);

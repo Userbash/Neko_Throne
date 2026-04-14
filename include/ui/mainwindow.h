@@ -1,5 +1,8 @@
 #pragma once
 
+#include <memory>
+#include <functional>
+#include <atomic>
 #include <QMainWindow>
 #include <include/global/HTTPRequestHelper.hpp>
 #ifndef Q_MOC_RUN
@@ -12,6 +15,9 @@
 #ifdef Q_OS_LINUX
 #include <QtDBus>
 #endif
+
+Q_DECLARE_METATYPE(libcore::SpeedTestResult)
+Q_DECLARE_METATYPE(Configs_network::DownloadProgressReport)
 
 #ifndef MW_INTERFACE
 
