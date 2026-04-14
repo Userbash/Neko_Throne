@@ -1,5 +1,7 @@
+#include <mutex>
 #include "include/api/RPC.h"
 #include <utility>
+#include <mutex>
 
 #include "include/global/Configs.hpp"
 
@@ -11,6 +13,7 @@
 #include <QMutex>
 #include <QSemaphore>
 #include <QAbstractNetworkCache>
+#include <QtConcurrent>
 
 namespace QtGrpc {
     const char *GrpcAcceptEncodingHeader = "grpc-accept-encoding";
@@ -59,9 +62,19 @@ namespace QtGrpc {
         }
 
         static QByteArray processReply(QNetworkReply *networkReply, QNetworkReply::NetworkError &statusCode) {
+            if (!networkReply) {
+                statusCode = QNetworkReply::NetworkError::UnknownNetworkError;
+                return {};
+            }
+
             if (networkReply->error() != QNetworkReply::NoError) {
                 statusCode = networkReply->error();
                 MW_show_log(QString("[gRPC] Network Error: %1 (%2)").arg(networkReply->errorString()).arg(static_cast<int>(statusCode)));
+                return {};
+            }
+
+            if (!networkReply->isOpen() || !networkReply->isReadable()) {
+                statusCode = QNetworkReply::NetworkError::OperationCanceledError;
                 return {};
             }
 
@@ -79,19 +92,27 @@ namespace QtGrpc {
         QNetworkReply::NetworkError call(const QString &method, const QString &service, const QByteArray &args, QByteArray &qByteArray, int timeout_ms) {
             QNetworkReply *networkReply = post(method, service, args);
 
+            // Use semaphore instead of blocking event loop - prevents deadlocks on gRPC timeout
+            auto replySemaphore = std::make_shared<QSemaphore>(0);
+
             if (timeout_ms > 0) {
-                // Parent to networkReply: timer is auto-deleted when the reply is deleted.
-                auto *abortTimer = new QTimer(networkReply);
+                auto *abortTimer = new QTimer(nullptr);
                 abortTimer->setSingleShot(true);
                 abortTimer->setInterval(timeout_ms);
                 QObject::connect(abortTimer, &QTimer::timeout, networkReply, &QNetworkReply::abort);
+                QObject::connect(networkReply, &QNetworkReply::finished, abortTimer, &QTimer::deleteLater);
                 abortTimer->start();
             }
 
-            {
-                QEventLoop loop;
-                QObject::connect(networkReply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-                loop.exec();
+            // Signal semaphore when reply finished - non-blocking wait
+            QObject::connect(networkReply, &QNetworkReply::finished, [replySemaphore]() {
+                replySemaphore->release();
+            });
+
+            // Wait with timeout - no longer blocks the event loop
+            int waitTimeout = timeout_ms > 0 ? timeout_ms + 5000 : 20000;
+            if (!replySemaphore->tryAcquire(1, waitTimeout)) {
+                networkReply->abort();  // Ensure cleanup on timeout
             }
 
             auto grpcStatus = QNetworkReply::NetworkError::ProtocolUnknownError;
@@ -126,23 +147,25 @@ namespace QtGrpc {
 
             auto requestArray = QByteArray::fromStdString(req);
 
-            QByteArray responseArray;
-            QNetworkReply::NetworkError err;
-            QSemaphore semaphore;
+            // Use shared_ptr to keep semaphore, responseArray, and err alive across async operations
+            auto semaphore = std::make_shared<QSemaphore>();
+            auto responseArray = std::make_shared<QByteArray>();
+            auto err = std::make_shared<QNetworkReply::NetworkError>(QNetworkReply::NetworkError::TimeoutError);
 
-            QMetaObject::invokeMethod(nm, [&] {
-                err = call(methodName, serviceName, requestArray, responseArray, timeout_ms);
-                semaphore.release();
+            QMetaObject::invokeMethod(nm, [semaphore, responseArray, err, methodName, requestArray, this, timeout_ms] {
+                // Lambda captures shared_ptr by value - keeps objects alive
+                *err = call(methodName, serviceName, requestArray, *responseArray, timeout_ms);
+                semaphore->release();
             });
 
-            if (!semaphore.tryAcquire(1, timeout_ms > 0 ? timeout_ms + 5000 : 20000)) {
+            if (!semaphore->tryAcquire(1, timeout_ms > 0 ? timeout_ms + 5000 : 20000)) {
                 return QNetworkReply::NetworkError::TimeoutError;
             }
 
-            if (err != QNetworkReply::NetworkError::NoError) {
-                return err;
+            if (*err != QNetworkReply::NetworkError::NoError) {
+                return *err;
             }
-            rsp.assign(responseArray.begin(), responseArray.end());
+            rsp.assign(responseArray->begin(), responseArray->end());
             return QNetworkReply::NetworkError::NoError;
         }
     };
@@ -151,51 +174,87 @@ namespace QtGrpc {
 namespace API {
 
     Client::Client(std::function<void(const QString &)> onError, const QString &target) {
-        this->make_grpc_channel = [=]() { return std::make_unique<QtGrpc::Http2GrpcChannelPrivate>(target, "libcore.LibcoreService"); };
-        this->default_grpc_channel = make_grpc_channel();
         this->onError = std::move(onError);
+        std::lock_guard<std::mutex> lock(channel_mutex);
+        this->default_grpc_channel = std::make_shared<QtGrpc::Http2GrpcChannelPrivate>(target, "libcore.LibcoreService");
     }
 
-#define NOT_OK      \
+    Client::~Client() {
+        StopPendingOperations();
+    }
+
+    void Client::StopPendingOperations() {
+        std::lock_guard<std::mutex> lock(channel_mutex);
+        default_grpc_channel.reset();
+    }
+
+#define NOT_OK(channel_ptr) \
     *rpcOK = false; \
     onError(QString("[gRPC] Call failed. NetworkError code: %1\n").arg(static_cast<int>(status)));
 
+#define GET_CHANNEL(channel_ptr) \
+    std::shared_ptr<QtGrpc::Http2GrpcChannelPrivate> channel_ptr; \
+    { \
+        std::lock_guard<std::mutex> lock(channel_mutex); \
+        channel_ptr = default_grpc_channel; \
+    } \
+    if (!channel_ptr) { *rpcOK = false; return {}; }
+
+#define GET_CHANNEL_VOID(channel_ptr) \
+    std::shared_ptr<QtGrpc::Http2GrpcChannelPrivate> channel_ptr; \
+    { \
+        std::lock_guard<std::mutex> lock(channel_mutex); \
+        channel_ptr = default_grpc_channel; \
+    } \
+    if (!channel_ptr) { *rpcOK = false; return; }
+
     QString Client::Start(bool *rpcOK, const libcore::LoadConfigReq &request) {
+        GET_CHANNEL(channel)
         libcore::ErrorResp reply;
         std::vector<uint8_t> resp;
-        auto status = default_grpc_channel->Call("Start", spb::pb::serialize<std::string>(request), resp);
+        auto status = channel->Call("Start", spb::pb::serialize<std::string>(request), resp);
 
         if (status == QNetworkReply::NoError) {
             reply = spb::pb::deserialize<libcore::ErrorResp>(resp);
             *rpcOK = true;
-            return QString::fromStdString(reply.error.value());
+            return reply.error.has_value() ? QString::fromStdString(reply.error.value()) : "";
         } else {
-            NOT_OK
+            *rpcOK = false;
+            onError(QString("[gRPC] Call failed. NetworkError code: %1\n").arg(static_cast<int>(status)));
             return "";
         }
     }
 
     QString Client::Stop(bool *rpcOK) {
+        GET_CHANNEL(channel)
         libcore::EmptyReq request;
         libcore::ErrorResp reply;
         std::vector<uint8_t> resp;
-        auto status = default_grpc_channel->Call("Stop", spb::pb::serialize<std::string>(request), resp);
+        auto status = channel->Call("Stop", spb::pb::serialize<std::string>(request), resp);
 
         if (status == QNetworkReply::NoError) {
             reply = spb::pb::deserialize<libcore::ErrorResp>(resp);
             *rpcOK = true;
-            return QString::fromStdString(reply.error.value());
+            return reply.error.has_value() ? QString::fromStdString(reply.error.value()) : "";
         } else {
-            NOT_OK
+            *rpcOK = false;
+            onError(QString("[gRPC] Call failed. NetworkError code: %1\n").arg(static_cast<int>(status)));
             return "";
         }
     }
 
     libcore::QueryStatsResp Client::QueryStats() {
+        std::shared_ptr<QtGrpc::Http2GrpcChannelPrivate> channel;
+        {
+            std::lock_guard<std::mutex> lock(channel_mutex);
+            channel = default_grpc_channel;
+        }
+        if (!channel) return {};
+
         libcore::EmptyReq request;
         libcore::QueryStatsResp reply;
         std::vector<uint8_t> resp;
-        auto status = default_grpc_channel->Call("QueryStats", spb::pb::serialize<std::string>(request), resp, 500);
+        auto status = channel->Call("QueryStats", spb::pb::serialize<std::string>(request), resp, 500);
 
         if (status == QNetworkReply::NoError) {
             reply = spb::pb::deserialize<libcore::QueryStatsResp>(resp);
@@ -206,69 +265,87 @@ namespace API {
     }
 
     libcore::TestResp Client::Test(bool *rpcOK, const libcore::TestReq &request) {
+        GET_CHANNEL(channel)
         libcore::TestResp reply;
         std::vector<uint8_t> resp;
-        auto status = default_grpc_channel->Call("Test", spb::pb::serialize<std::string>(request), resp);
+        auto status = channel->Call("Test", spb::pb::serialize<std::string>(request), resp);
 
         if (status == QNetworkReply::NoError) {
             reply = spb::pb::deserialize<libcore::TestResp>(resp);
             *rpcOK = true;
             return reply;
         } else {
-            NOT_OK
+            *rpcOK = false;
+            onError(QString("[gRPC] Call failed. NetworkError code: %1\n").arg(static_cast<int>(status)));
             return {};
         }
     }
 
     void Client::StopTests(bool *rpcOK) {
+        GET_CHANNEL_VOID(channel)
         const libcore::EmptyReq request;
         std::vector<uint8_t> resp;
-        auto status = default_grpc_channel->Call("StopTest", spb::pb::serialize<std::string>(request), resp);
+        auto status = channel->Call("StopTest", spb::pb::serialize<std::string>(request), resp);
 
         if (status == QNetworkReply::NoError) {
             *rpcOK = true;
         } else {
-            NOT_OK
+            NOT_OK(channel)
         }
     }
 
     libcore::QueryURLTestResponse Client::QueryURLTest(bool *rpcOK)
     {
+        GET_CHANNEL(channel)
         libcore::EmptyReq request;
         libcore::QueryURLTestResponse reply;
         std::vector<uint8_t> resp;
-        auto status = default_grpc_channel->Call("QueryURLTest", spb::pb::serialize<std::string>(request), resp);
+        auto status = channel->Call("QueryURLTest", spb::pb::serialize<std::string>(request), resp);
 
         if (status == QNetworkReply::NoError) {
             reply = spb::pb::deserialize<libcore::QueryURLTestResponse>(resp);
             *rpcOK = true;
             return reply;
         } else {
-            NOT_OK
+            *rpcOK = false;
+            onError(QString("[gRPC] Call failed. NetworkError code: %1\n").arg(static_cast<int>(status)));
             return {};
         }
     }
 
     QString Client::SetSystemDNS(bool *rpcOK, const bool clear) const {
+        std::shared_ptr<QtGrpc::Http2GrpcChannelPrivate> channel;
+        {
+            std::lock_guard<std::mutex> lock(channel_mutex);
+            channel = default_grpc_channel;
+        }
+        if (!channel) { *rpcOK = false; return {}; }
         libcore::SetSystemDNSRequest request{clear};
         std::vector<uint8_t> resp;
-        auto status = default_grpc_channel->Call("SetSystemDNS", spb::pb::serialize<std::string>(request), resp);
+        auto status = channel->Call("SetSystemDNS", spb::pb::serialize<std::string>(request), resp);
 
         if (status == QNetworkReply::NoError) {
             *rpcOK = true;
             return "";
         } else {
-            NOT_OK
+            *rpcOK = false;
+            onError(QString("[gRPC] Call failed. NetworkError code: %1\n").arg(static_cast<int>(status)));
             return QString("QNetworkReply error: %1").arg(status);
         }
     }
 
     libcore::ListConnectionsResp Client::ListConnections() const
     {
+        std::shared_ptr<QtGrpc::Http2GrpcChannelPrivate> channel;
+        {
+            std::lock_guard<std::mutex> lock(channel_mutex);
+            channel = default_grpc_channel;
+        }
+        if (!channel) return {};
         libcore::EmptyReq request;
         libcore::ListConnectionsResp reply;
         std::vector<uint8_t> resp;
-        auto status = default_grpc_channel->Call("ListConnections", spb::pb::serialize<std::string>(request), resp);
+        auto status = channel->Call("ListConnections", spb::pb::serialize<std::string>(request), resp);
 
         if (status == QNetworkReply::NoError) {
             reply = spb::pb::deserialize<libcore::ListConnectionsResp>(resp);
@@ -281,132 +358,151 @@ namespace API {
 
     QString Client::CheckConfig(bool* rpcOK, const QString& config) const
     {
+        std::shared_ptr<QtGrpc::Http2GrpcChannelPrivate> channel;
+        {
+            std::lock_guard<std::mutex> lock(channel_mutex);
+            channel = default_grpc_channel;
+        }
+        if (!channel) { *rpcOK = false; return {}; }
         libcore::LoadConfigReq request{.core_config = config.toStdString()};
         libcore::ErrorResp reply;
         std::vector<uint8_t> resp;
-        auto status = default_grpc_channel->Call("CheckConfig", spb::pb::serialize<std::string>(request), resp);
+        auto status = channel->Call("CheckConfig", spb::pb::serialize<std::string>(request), resp);
 
         if (status == QNetworkReply::NoError)
         {
             reply = spb::pb::deserialize<libcore::ErrorResp>(resp);
             *rpcOK = true;
-            return QString::fromStdString(reply.error.value());
+            return reply.error.has_value() ? QString::fromStdString(reply.error.value()) : "";
         } else
         {
-            NOT_OK
+            *rpcOK = false;
+            onError(QString("[gRPC] Call failed. NetworkError code: %1\n").arg(static_cast<int>(status)));
             return QString("QNetworkReply error: %1").arg(status);
         }
-
     }
 
     bool Client::IsPrivileged(bool* rpcOK) const
     {
+        std::shared_ptr<QtGrpc::Http2GrpcChannelPrivate> channel;
+        {
+            std::lock_guard<std::mutex> lock(channel_mutex);
+            channel = default_grpc_channel;
+        }
+        if (!channel) { *rpcOK = false; return false; }
         libcore::EmptyReq request;
         libcore::IsPrivilegedResponse reply;
         std::vector<uint8_t> resp;
-        auto status = default_grpc_channel->Call("IsPrivileged", spb::pb::serialize<std::string>(request), resp);
+        auto status = channel->Call("IsPrivileged", spb::pb::serialize<std::string>(request), resp);
 
         if (status == QNetworkReply::NoError)
         {
             reply = spb::pb::deserialize<libcore::IsPrivilegedResponse>(resp);
             *rpcOK = true;
-            return reply.has_privilege.value();
+            return reply.has_privilege.has_value() ? reply.has_privilege.value() : false;
         } else
         {
-            NOT_OK
+            *rpcOK = false;
+            onError(QString("[gRPC] Call failed. NetworkError code: %1\n").arg(static_cast<int>(status)));
             return false;
         }
     }
 
     libcore::SpeedTestResponse Client::SpeedTest(bool *rpcOK, const libcore::SpeedTestRequest &request)
     {
+        GET_CHANNEL(channel)
         libcore::SpeedTestResponse reply;
         std::vector<uint8_t> resp;
-        auto status = default_grpc_channel->Call("SpeedTest", spb::pb::serialize<std::string>(request), resp);
+        auto status = channel->Call("SpeedTest", spb::pb::serialize<std::string>(request), resp);
 
         if (status == QNetworkReply::NoError) {
             reply = spb::pb::deserialize<libcore::SpeedTestResponse>(resp);
             *rpcOK = true;
             return reply;
         } else {
-            NOT_OK
+            NOT_OK(channel)
             return {};
         }
     }
 
     libcore::QuerySpeedTestResponse Client::QueryCurrentSpeedTests(bool *rpcOK)
     {
+        GET_CHANNEL(channel)
         const libcore::EmptyReq request;
         libcore::QuerySpeedTestResponse reply;
         std::vector<uint8_t> resp;
-        auto status = default_grpc_channel->Call("QuerySpeedTest", spb::pb::serialize<std::string>(request), resp);
+        auto status = channel->Call("QuerySpeedTest", spb::pb::serialize<std::string>(request), resp);
 
         if (status == QNetworkReply::NoError) {
             reply = spb::pb::deserialize<libcore::QuerySpeedTestResponse>(resp);
             *rpcOK = true;
             return reply;
         } else {
-            NOT_OK
+            NOT_OK(channel)
             return {};
         }
     }
 
     libcore::QueryCountryTestResponse Client::QueryCountryTestResults(bool* rpcOK)
     {
+        GET_CHANNEL(channel)
         const libcore::EmptyReq request;
         libcore::QueryCountryTestResponse reply;
         std::vector<uint8_t> resp;
-        auto status = default_grpc_channel->Call("QueryCountryTest", spb::pb::serialize<std::string>(request), resp);
+        auto status = channel->Call("QueryCountryTest", spb::pb::serialize<std::string>(request), resp);
 
         if (status == QNetworkReply::NoError) {
             reply = spb::pb::deserialize<libcore::QueryCountryTestResponse>(resp);
             *rpcOK = true;
             return reply;
         } else {
-            NOT_OK
+            NOT_OK(channel)
             return {};
         }
     }
 
     libcore::IPTestResp Client::IPTest(bool *rpcOK, const libcore::IPTestRequest &request)
     {
+        GET_CHANNEL(channel)
         libcore::IPTestResp reply;
         std::vector<uint8_t> resp;
-        auto status = default_grpc_channel->Call("IPTest", spb::pb::serialize<std::string>(request), resp);
+        auto status = channel->Call("IPTest", spb::pb::serialize<std::string>(request), resp);
 
         if (status == QNetworkReply::NoError) {
             reply = spb::pb::deserialize<libcore::IPTestResp>(resp);
             *rpcOK = true;
             return reply;
         } else {
-            NOT_OK
+            NOT_OK(channel)
             return {};
         }
     }
 
     libcore::QueryIPTestResponse Client::QueryIPTest(bool *rpcOK)
     {
+        GET_CHANNEL(channel)
         const libcore::EmptyReq request;
         libcore::QueryIPTestResponse reply;
         std::vector<uint8_t> resp;
-        auto status = default_grpc_channel->Call("QueryIPTest", spb::pb::serialize<std::string>(request), resp);
+        auto status = channel->Call("QueryIPTest", spb::pb::serialize<std::string>(request), resp);
 
         if (status == QNetworkReply::NoError) {
             reply = spb::pb::deserialize<libcore::QueryIPTestResponse>(resp);
             *rpcOK = true;
             return reply;
         } else {
-            NOT_OK
+            NOT_OK(channel)
             return {};
         }
     }
 
     libcore::GenWgKeyPairResponse Client::GenWgKeyPair(bool *rpcOK)
     {
+        GET_CHANNEL(channel)
         const libcore::EmptyReq request;
         libcore::GenWgKeyPairResponse reply;
         std::vector<uint8_t> resp;
-        auto status = default_grpc_channel->Call("GenWgKeyPair", spb::pb::serialize<std::string>(request), resp);
+        auto status = channel->Call("GenWgKeyPair", spb::pb::serialize<std::string>(request), resp);
 
         if (status == QNetworkReply::NoError) {
             reply = spb::pb::deserialize<libcore::GenWgKeyPairResponse>(resp);
@@ -417,7 +513,7 @@ namespace API {
             }
             return reply;
         } else {
-            NOT_OK
+            NOT_OK(channel)
             return {};
         }
     }
