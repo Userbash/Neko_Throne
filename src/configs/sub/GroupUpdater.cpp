@@ -170,15 +170,22 @@ namespace Subscription {
 
         // VMess
         if (str.startsWith("vmess://")) {
-            ent = Configs::ProfileManager::NewProxyEntity("vmess");
-            if (ent == nullptr) return;
-            auto ok = ent->VMess()->ParseFromLink(str);
-            if (!ok) return;
+            if (Configs::useXrayCore(str)) {
+                ent = Configs::ProfileManager::NewProxyEntity("xrayvmess");
+                if (ent == nullptr) return;
+                auto ok = ent->XrayVMess()->ParseFromLink(str);
+                if (!ok) return;
+            } else {
+                ent = Configs::ProfileManager::NewProxyEntity("vmess");
+                if (ent == nullptr) return;
+                auto ok = ent->VMess()->ParseFromLink(str);
+                if (!ok) return;
+            }
         }
 
         // VLESS
         if (str.startsWith("vless://")) {
-            if (Configs::useXrayVless(str)) {
+            if (Configs::useXrayCore(str)) {
                 ent = Configs::ProfileManager::NewProxyEntity("xrayvless");
                 if (ent == nullptr) return;
                 auto ok = ent->XrayVLESS()->ParseFromLink(str);

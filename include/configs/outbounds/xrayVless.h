@@ -40,5 +40,8 @@ namespace Configs {
         bool IsXray() override {
            return true;
         }
+        bool MustXray() override {
+           return true;
+        }
     };
 }

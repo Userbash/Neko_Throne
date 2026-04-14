@@ -174,7 +174,8 @@ private:
     QShortcut *shortcut_esc = new QShortcut(QKeySequence("Esc"), this);
     //
     QThreadPool *parallelCoreCallPool = new QThreadPool(this);
-    std::atomic<bool> stopSpeedtest = false;
+    QMutex speedtestMutex;
+    bool speedtestShouldStop = false;
     QMutex speedtestRunning;
     //
     Configs_sys::CoreProcess *core_process;
@@ -292,11 +293,22 @@ private:
 protected:
     bool eventFilter(QObject *obj, QEvent *event) override;
 
+    // Speedtest control helpers with mutex protection
+    inline bool shouldStopSpeedtest() {
+        QMutexLocker locker(&speedtestMutex);
+        return speedtestShouldStop;
+    }
+
+    inline void setSpeedtestStop(bool stop) {
+        QMutexLocker locker(&speedtestMutex);
+        speedtestShouldStop = stop;
+    }
+
 #endif // MW_INTERFACE
 };
 
 inline MainWindow *GetMainWindow() {
-    return (MainWindow *) mainwindow;
+    return mainwindow.isNull() ? nullptr : qobject_cast<MainWindow*>(mainwindow.data());
 }
 
 void UI_InitMainWindow();

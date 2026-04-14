@@ -1,3 +1,4 @@
+#include <mutex>
 // SPDX-License-Identifier: GPL-2.0-or-later
 // ═══════════════════════════════════════════════════════════════════════════════
 // src/sys/NetworkLeakGuard.cpp — OS-level IP/DNS leak prevention engine
@@ -20,14 +21,34 @@ NetworkLeakGuard *NetworkLeakGuard::instance() {
 
 NetworkLeakGuard::NetworkLeakGuard(QObject *parent) : QObject(parent) {}
 
+NetworkLeakGuard::~NetworkLeakGuard() {
+    // Ensure timer is stopped and disconnected before destruction
+    // This prevents timer signals from firing during/after object destruction
+    if (m_timer) {
+        m_timer->stop();
+        disconnect(m_timer, nullptr, this, nullptr);
+    }
+    // Wait for any pending audit operations to complete
+    waitForAudit();
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Full Audit — runs routing, DNS, and IPv6 checks off-thread
 // ═══════════════════════════════════════════════════════════════════════════════
 void NetworkLeakGuard::runFullAudit() {
+    // Force reset flag if audit has been running too long (timeout protection)
+    QDateTime now = QDateTime::currentDateTime();
+    if (m_lastAuditStart.isValid() && m_lastAuditStart.msecsTo(now) > 30000) {
+        // Audit timeout - force reset
+        m_auditRunning.store(false, std::memory_order_release);
+    }
+
     if (m_auditRunning.exchange(true, std::memory_order_acq_rel))
         return; // previous audit still running, skip
 
-    (void) QtConcurrent::run([this] {
+    m_lastAuditStart = now;
+
+    m_auditFuture = QtConcurrent::run([this] {
         LeakAuditResult combined;
 
         auto routeResult = auditRoutingTable();
@@ -44,6 +65,8 @@ void NetworkLeakGuard::runFullAudit() {
                              << ipv6Result.diagnostics;
 
         QMetaObject::invokeMethod(this, [this, combined] {
+            // Ensure previous audit is fully cleaned up before resetting flag
+            std::atomic_thread_fence(std::memory_order_acquire);
             m_auditRunning.store(false, std::memory_order_release);
             emit auditCompleted(combined);
 
@@ -61,7 +84,8 @@ void NetworkLeakGuard::runFullAudit() {
 void NetworkLeakGuard::startMonitoring(int intervalMs) {
     if (!m_timer) {
         m_timer = new QTimer(this);
-        connect(m_timer, &QTimer::timeout, this, &NetworkLeakGuard::runFullAudit);
+        // Use Qt::UniqueConnection to prevent duplicate connections if startMonitoring is called multiple times
+        connect(m_timer, &QTimer::timeout, this, &NetworkLeakGuard::runFullAudit, Qt::UniqueConnection);
     }
     m_timer->start(intervalMs > 15000 ? intervalMs : 15000);
 }
@@ -69,6 +93,12 @@ void NetworkLeakGuard::startMonitoring(int intervalMs) {
 void NetworkLeakGuard::stopMonitoring() {
     if (m_timer)
         m_timer->stop();
+    waitForAudit();
+}
+
+void NetworkLeakGuard::waitForAudit() {
+    if (m_auditFuture.isRunning())
+        m_auditFuture.waitForFinished();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

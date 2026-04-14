@@ -1,0 +1,698 @@
+--- STRICT Build x86_64 (Qt 6.10.2, g++, No LTO, No O) started at Ср 15 апр 2026 01:38:10 +05 ---
+Updating 'res/translations/fa_IR.qm'...
+    Generated 492 translation(s) (433 finished and 59 unfinished)
+    Ignored 178 untranslated source text(s)
+Updating 'res/translations/ru_RU.qm'...
+    Generated 925 translation(s) (909 finished and 16 unfinished)
+Updating 'res/translations/zh_CN.qm'...
+    Generated 670 translation(s) (670 finished and 0 unfinished)
+ThroneCore
+-- The C compiler identification is GNU 15.2.0
+-- The CXX compiler identification is GNU 15.2.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/gcc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/g++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- [Throne] Architecture enforcement passed: x86_64
+-- [Throne] Configuring GCC-specific performance flags (No LTO, No PGO, O3)...
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+-- Performing Test HAVE_STDATOMIC
+-- Performing Test HAVE_STDATOMIC - Success
+-- Found WrapAtomic: TRUE
+-- Found OpenGL: /usr/lib/x86_64-linux-gnu/libOpenGL.so
+-- Found WrapOpenGL: TRUE
+-- Found WrapVulkanHeaders: /usr/include
+-- [Throne] Qt6 version: 6.10.2
+[CMAKE_PREFIX_PATH] 
+[CMAKE_FIND_ROOT_PATH] 
+-- Found X11: /usr/include
+-- Looking for XOpenDisplay in /usr/lib/x86_64-linux-gnu/libX11.so;/usr/lib/x86_64-linux-gnu/libXext.so
+-- Looking for XOpenDisplay in /usr/lib/x86_64-linux-gnu/libX11.so;/usr/lib/x86_64-linux-gnu/libXext.so - found
+-- Looking for gethostbyname
+-- Looking for gethostbyname - found
+-- Looking for connect
+-- Looking for connect - found
+-- Looking for remove
+-- Looking for remove - found
+-- Looking for shmat
+-- Looking for shmat - found
+-- Looking for IceConnectionNumber in ICE
+-- Looking for IceConnectionNumber in ICE - found
+-- Configuring done (1.1s)
+-- Generating done (0.1s)
+CMake Warning:
+  Manually-specified variables were not used by the project:
+
+    ENABLE_PGO
+
+
+-- Build files have been written to: /var/home/sanya/Neko_Throne/build
+[1/145] Generating zh_CN.qm
+Updating '/var/home/sanya/Neko_Throne/build/zh_CN.qm'...
+    Generated 670 translation(s) (670 finished and 0 unfinished)
+[2/145] Generating fa_IR.qm
+Updating '/var/home/sanya/Neko_Throne/build/fa_IR.qm'...
+    Generated 492 translation(s) (433 finished and 59 unfinished)
+    Ignored 178 untranslated source text(s)
+[3/145] Generating ru_RU.qm
+Updating '/var/home/sanya/Neko_Throne/build/ru_RU.qm'...
+    Generated 925 translation(s) (909 finished and 16 unfinished)
+[4/145] Automatic MOC for target spb-protoc
+[5/145] Building CXX object 3rdparty/simple-protobuf/src/spb-proto-compiler/CMakeFiles/spb-protoc.dir/spb-protoc_autogen/mocs_compilation.cpp.o
+[6/145] Building CXX object 3rdparty/simple-protobuf/src/spb-proto-compiler/CMakeFiles/spb-protoc.dir/main.cpp.o
+[7/145] Building CXX object 3rdparty/simple-protobuf/src/spb-proto-compiler/CMakeFiles/spb-protoc.dir/parser/parser.cpp.o
+[8/145] Building CXX object 3rdparty/simple-protobuf/src/spb-proto-compiler/CMakeFiles/spb-protoc.dir/ast/ast-types.cpp.o
+[9/145] Building CXX object 3rdparty/simple-protobuf/src/spb-proto-compiler/CMakeFiles/spb-protoc.dir/ast/ast-messages-order.cpp.o
+[10/145] Building CXX object 3rdparty/simple-protobuf/src/spb-proto-compiler/CMakeFiles/spb-protoc.dir/ast/ast.cpp.o
+[11/145] Building CXX object 3rdparty/simple-protobuf/src/spb-proto-compiler/CMakeFiles/spb-protoc.dir/io/file.cpp.o
+[12/145] Building CXX object 3rdparty/simple-protobuf/src/spb-proto-compiler/CMakeFiles/spb-protoc.dir/dumper/pb/dumper.cpp.o
+[13/145] Building CXX object 3rdparty/simple-protobuf/src/spb-proto-compiler/CMakeFiles/spb-protoc.dir/dumper/header.cpp.o
+[14/145] Building CXX object 3rdparty/simple-protobuf/src/spb-proto-compiler/CMakeFiles/spb-protoc.dir/dumper/json/dumper.cpp.o
+[15/145] Building CXX object 3rdparty/simple-protobuf/src/spb-proto-compiler/CMakeFiles/spb-protoc.dir/dumper/dumper.cpp.o
+[16/145] Linking CXX executable 3rdparty/simple-protobuf/src/spb-proto-compiler/spb-protoc
+[17/145] Compiling protofile core/server/gen/libcore.proto
+[18/145] Automatic MOC for target myproto
+[19/145] Building CXX object CMakeFiles/myproto.dir/myproto_autogen/mocs_compilation.cpp.o
+[20/145] Building CXX object CMakeFiles/myproto.dir/libcore.pb.cc.o
+[21/145] Linking CXX static library libmyproto.a
+[22/145] Automatic MOC for target qhotkey
+[23/145] Building CXX object CMakeFiles/qhotkey.dir/qhotkey_autogen/mocs_compilation.cpp.o
+[24/145] Building CXX object CMakeFiles/qhotkey.dir/3rdparty/QHotkey/qhotkey.cpp.o
+[25/145] Building CXX object CMakeFiles/qhotkey.dir/3rdparty/QHotkey/qhotkey_x11.cpp.o
+[26/145] Linking CXX static library libqhotkey.a
+[27/145] Automatic MOC for target ArtifactTest
+[28/145] Building CXX object CMakeFiles/ArtifactTest.dir/ArtifactTest_autogen/mocs_compilation.cpp.o
+[29/145] Building CXX object CMakeFiles/ArtifactTest.dir/tests/ArtifactTest.cpp.o
+[30/145] Linking CXX executable ArtifactTest
+[31/145] Automatic MOC and UIC for target Throne
+[32/145] Automatic RCC for res/Throne.qrc
+[33/145] Automatic RCC for res/EmojiFont.qrc
+[34/145] Building CXX object CMakeFiles/Throne.dir/src/sys/linux/coreDump.cpp.o
+[35/145] Building CXX object CMakeFiles/Throne.dir/src/sys/linux/LinuxCap.cpp.o
+[36/145] Building CXX object CMakeFiles/Throne.dir/src/ui/core/TranslationManager.cpp.o
+[37/145] Building CXX object CMakeFiles/Throne.dir/src/ui/core/TitleBar.cpp.o
+[38/145] Building CXX object CMakeFiles/Throne.dir/src/ui/core/SpeedGraph.cpp.o
+[39/145] Building CXX object CMakeFiles/Throne.dir/src/ui/models/ServerListModel.cpp.o
+[40/145] Building CXX object CMakeFiles/Throne.dir/src/ui/models/LogModel.cpp.o
+[41/145] Building CXX object CMakeFiles/Throne.dir/src/ui/models/RoutingRulesModel.cpp.o
+[42/145] Building CXX object CMakeFiles/Throne.dir/src/sys/platform/PlatformTray.cpp.o
+[43/145] Building CXX object CMakeFiles/Throne.dir/src/sys/platform/SystemThemeWatcher.cpp.o
+[44/145] Building CXX object CMakeFiles/Throne.dir/Throne_autogen/mocs_compilation.cpp.o
+[45/145] Building CXX object CMakeFiles/Throne.dir/src/ui/core/AsyncBackendBridge.cpp.o
+[46/145] Building CXX object CMakeFiles/Throne.dir/src/sys/platform/TitleBar_linux.cpp.o
+[47/145] Building CXX object CMakeFiles/Throne.dir/src/main.cpp.o
+[48/145] Building CXX object CMakeFiles/Throne.dir/src/global/Configs.cpp.o
+[49/145] Building CXX object CMakeFiles/Throne.dir/src/global/Utils.cpp.o
+[50/145] Building CXX object CMakeFiles/Throne.dir/src/global/DeviceDetailsHelper.cpp.o
+[51/145] Building CXX object CMakeFiles/Throne.dir/src/global/CountryHelper.cpp.o
+[52/145] Building CXX object CMakeFiles/Throne.dir/3rdparty/base64.cpp.o
+[53/145] Building CXX object CMakeFiles/Throne.dir/src/global/HTTPRequestHelper.cpp.o
+[54/145] Building CXX object CMakeFiles/Throne.dir/3rdparty/qrcodegen.cpp.o
+[55/145] Building CXX object CMakeFiles/Throne.dir/3rdparty/QtExtKeySequenceEdit.cpp.o
+[56/145] Building CXX object CMakeFiles/Throne.dir/3rdparty/QrDecoder.cpp.o
+[57/145] Building CXX object CMakeFiles/Throne.dir/3rdparty/qv2ray/v2/ui/LogHighlighter.cpp.o
+[58/145] Building CXX object CMakeFiles/Throne.dir/3rdparty/qv2ray/v2/ui/QvAutoCompleteTextEdit.cpp.o
+[59/145] Building CXX object CMakeFiles/Throne.dir/3rdparty/qv2ray/v2/ui/widgets/common/QJsonModel.cpp.o
+[60/145] Building CXX object CMakeFiles/Throne.dir/3rdparty/qv2ray/v2/ui/widgets/editors/w_JsonEditor.cpp.o
+[61/145] Building CXX object CMakeFiles/Throne.dir/3rdparty/qv2ray/v2/ui/widgets/speedchart/SpeedWidget.cpp.o
+[62/145] Building C object CMakeFiles/Throne.dir/3rdparty/quirc/decode.c.o
+[63/145] Building C object CMakeFiles/Throne.dir/3rdparty/quirc/identify.c.o
+[64/145] Building C object CMakeFiles/Throne.dir/3rdparty/quirc/quirc.c.o
+[65/145] Building C object CMakeFiles/Throne.dir/3rdparty/quirc/version_db.c.o
+[66/145] Building CXX object CMakeFiles/Throne.dir/3rdparty/qv2ray/v2/proxy/QvProxyConfigurator.cpp.o
+[67/145] Building CXX object CMakeFiles/Throne.dir/src/api/RPC.cpp.o
+[68/145] Building CXX object CMakeFiles/Throne.dir/src/sys/ProxyStateManager.cpp.o
+[69/145] Building CXX object CMakeFiles/Throne.dir/src/sys/NetworkLeakGuard.cpp.o
+[70/145] Building CXX object CMakeFiles/Throne.dir/src/sys/CoreManager.cpp.o
+[71/145] Building CXX object CMakeFiles/Throne.dir/src/api/CoreVersionParser.cpp.o
+[72/145] Building CXX object CMakeFiles/Throne.dir/src/dataStore/Database.cpp.o
+[73/145] Building CXX object CMakeFiles/Throne.dir/src/stats/traffic/TrafficLooper.cpp.o
+[74/145] Building CXX object CMakeFiles/Throne.dir/src/dataStore/ProfileFilter.cpp.o
+[75/145] Building CXX object CMakeFiles/Throne.dir/src/configs/proxy/AbstractBean.cpp.o
+[76/145] Building CXX object CMakeFiles/Throne.dir/src/configs/proxy/Bean2CoreObj_box.cpp.o
+[77/145] Building CXX object CMakeFiles/Throne.dir/src/configs/proxy/Bean2Link.cpp.o
+[78/145] Building CXX object CMakeFiles/Throne.dir/src/configs/sub/clash.cpp.o
+[79/145] Building CXX object CMakeFiles/Throne.dir/src/configs/proxy/Link2Bean.cpp.o
+[80/145] Building CXX object CMakeFiles/Throne.dir/src/configs/sub/GroupUpdater.cpp.o
+[81/145] Building CXX object CMakeFiles/Throne.dir/src/configs/sub/warp.cpp.o
+[82/145] Building CXX object CMakeFiles/Throne.dir/src/sys/Process.cpp.o
+[83/145] Building CXX object CMakeFiles/Throne.dir/src/sys/AutoRun.cpp.o
+[84/145] Building CXX object CMakeFiles/Throne.dir/src/ui/setting/ThemeManager.cpp.o
+[85/145] Building CXX object CMakeFiles/Throne.dir/src/ui/setting/Icon.cpp.o
+[86/145] Building CXX object CMakeFiles/Throne.dir/src/ui/mainwindow_rpc.cpp.o
+[87/145] Building CXX object CMakeFiles/Throne.dir/src/ui/profile/dialog_edit_profile.cpp.o
+[88/145] Building CXX object CMakeFiles/Throne.dir/src/ui/profile/edit_shadowsocks.cpp.o
+[89/145] Building CXX object CMakeFiles/Throne.dir/src/ui/mainwindow.cpp.o
+[90/145] Building CXX object CMakeFiles/Throne.dir/src/ui/group/dialog_edit_group.cpp.o
+[91/145] Building CXX object CMakeFiles/Throne.dir/src/ui/profile/edit_chain.cpp.o
+[92/145] Building CXX object CMakeFiles/Throne.dir/src/ui/profile/edit_vmess.cpp.o
+[93/145] Building CXX object CMakeFiles/Throne.dir/src/ui/profile/edit_vless.cpp.o
+[94/145] Building CXX object CMakeFiles/Throne.dir/src/ui/profile/edit_anytls.cpp.o
+[95/145] Building CXX object CMakeFiles/Throne.dir/src/ui/profile/edit_tailscale.cpp.o
+[96/145] Building CXX object CMakeFiles/Throne.dir/src/ui/profile/edit_trojan.cpp.o
+[97/145] Building CXX object CMakeFiles/Throne.dir/src/ui/profile/edit_http.cpp.o
+[98/145] Building CXX object CMakeFiles/Throne.dir/src/ui/profile/edit_socks.cpp.o
+[99/145] Building CXX object CMakeFiles/Throne.dir/src/ui/profile/edit_hysteria.cpp.o
+[100/145] Building CXX object CMakeFiles/Throne.dir/src/ui/profile/edit_tuic.cpp.o
+[101/145] Building CXX object CMakeFiles/Throne.dir/src/ui/profile/edit_custom.cpp.o
+[102/145] Building CXX object CMakeFiles/Throne.dir/src/ui/profile/edit_extra_core.cpp.o
+[103/145] Building CXX object CMakeFiles/Throne.dir/src/ui/profile/edit_wireguard.cpp.o
+[104/145] Building CXX object CMakeFiles/Throne.dir/src/ui/setting/dialog_basic_settings.cpp.o
+[105/145] Building CXX object CMakeFiles/Throne.dir/src/ui/group/dialog_manage_groups.cpp.o
+[106/145] Building CXX object CMakeFiles/Throne.dir/src/ui/setting/dialog_manage_routes.cpp.o
+[107/145] Building CXX object CMakeFiles/Throne.dir/src/ui/setting/dialog_vpn_settings.cpp.o
+[108/145] Building CXX object CMakeFiles/Throne.dir/src/ui/setting/dialog_hotkey.cpp.o
+[109/145] Building CXX object CMakeFiles/Throne.dir/src/ui/profile/ProxyItem.cpp.o
+[110/145] Building CXX object CMakeFiles/Throne.dir/src/ui/group/GroupItem.cpp.o
+[111/145] Building CXX object CMakeFiles/Throne.dir/src/dataStore/RouteEntity.cpp.o
+[112/145] Building CXX object CMakeFiles/Throne.dir/src/ui/setting/RouteItem.cpp.o
+[113/145] Building CXX object CMakeFiles/Throne.dir/src/ui/profile/edit_ssh.cpp.o
+[114/145] Building CXX object CMakeFiles/Throne.dir/src/stats/connectionLister/connectionLister.cpp.o
+[115/145] Building CXX object CMakeFiles/Throne.dir/src/configs/proxy/Json2Bean.cpp.o
+[116/145] Building CXX object CMakeFiles/Throne.dir/src/dataStore/Group.cpp.o
+[117/145] Building CXX object CMakeFiles/Throne.dir/src/dataStore/ProxyEntity.cpp.o
+[118/145] Building CXX object CMakeFiles/Throne.dir/src/configs/common/DialFields.cpp.o
+[119/145] Building CXX object CMakeFiles/Throne.dir/src/configs/common/TLS.cpp.o
+[120/145] Building CXX object CMakeFiles/Throne.dir/src/configs/common/transport.cpp.o
+[121/145] Building CXX object CMakeFiles/Throne.dir/src/configs/common/Outbound.cpp.o
+[122/145] Building CXX object CMakeFiles/Throne.dir/src/configs/common/multiplex.cpp.o
+[123/145] Building CXX object CMakeFiles/Throne.dir/src/configs/outbounds/anyTLS.cpp.o
+[124/145] Building CXX object CMakeFiles/Throne.dir/src/configs/outbounds/http.cpp.o
+[125/145] Building CXX object CMakeFiles/Throne.dir/src/configs/outbounds/hysteria.cpp.o
+[126/145] Building CXX object CMakeFiles/Throne.dir/src/configs/outbounds/shadowsocks.cpp.o
+[127/145] Building CXX object CMakeFiles/Throne.dir/src/configs/outbounds/socks.cpp.o
+[128/145] Building CXX object CMakeFiles/Throne.dir/src/configs/outbounds/ssh.cpp.o
+[129/145] Building CXX object CMakeFiles/Throne.dir/src/configs/outbounds/tailscale.cpp.o
+[130/145] Building CXX object CMakeFiles/Throne.dir/src/configs/outbounds/trojan.cpp.o
+[131/145] Building CXX object CMakeFiles/Throne.dir/src/configs/outbounds/tuic.cpp.o
+[132/145] Building CXX object CMakeFiles/Throne.dir/src/configs/outbounds/vless.cpp.o
+[133/145] Building CXX object CMakeFiles/Throne.dir/src/configs/outbounds/vmess.cpp.o
+[134/145] Building CXX object CMakeFiles/Throne.dir/src/configs/outbounds/wireguard.cpp.o
+[135/145] Building CXX object CMakeFiles/Throne.dir/src/configs/common/utils.cpp.o
+[136/145] Building CXX object CMakeFiles/Throne.dir/src/configs/generate.cpp.o
+[137/145] Building CXX object CMakeFiles/Throne.dir/src/ui/profile/edit_advanced.cpp.o
+[138/145] Building CXX object CMakeFiles/Throne.dir/src/configs/common/xrayMultiplex.cpp.o
+[139/145] Building CXX object CMakeFiles/Throne.dir/src/configs/outbounds/xrayVmess.cpp.o
+[140/145] Building CXX object CMakeFiles/Throne.dir/Throne_autogen/PNK5WDWK6L/qrc_Throne.cpp.o
+[141/145] Building CXX object CMakeFiles/Throne.dir/src/configs/outbounds/xrayVless.cpp.o
+[142/145] Building CXX object CMakeFiles/Throne.dir/src/ui/profile/edit_xrayvless.cpp.o
+[143/145] Building CXX object CMakeFiles/Throne.dir/Throne_autogen/PNK5WDWK6L/qrc_EmojiFont.cpp.o
+[144/145] Building CXX object CMakeFiles/Throne.dir/src/configs/common/xrayStreamSetting.cpp.o
+[145/145] Linking CXX executable Neko_Throne; [i18n] Creating lang/ output directory; [i18n] Deploying /var/home/sanya/Neko_Throne/build/zh_CN.qm → lang/; [i18n] Deploying /var/home/sanya/Neko_Throne/build/fa_IR.qm → lang/; [i18n] Deploying /var/home/sanya/Neko_Throne/build/ru_RU.qm → lang/
+Test project /var/home/sanya/Neko_Throne/build
+    Start 1: FullArtifactCheck
+1/1 Test #1: FullArtifactCheck ................   Passed    1.17 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) =   1.17 sec
+[1/4] Copying core artifacts...
+[2/4] Bundling libraries with linuxdeploy...
+linuxdeploy version 1-alpha (git commit ID c28054b), GitHub actions build 304 built on 2025-02-13 18:20:41 UTC
+
+-- Creating basic AppDir structure -- 
+Creating directory /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/bin/ 
+Creating directory /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/ 
+Creating directory /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/share/applications/ 
+Creating directory /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/share/icons/hicolor/ 
+Creating directory /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/share/icons/hicolor/16x16/apps/ 
+Creating directory /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/share/icons/hicolor/32x32/apps/ 
+Creating directory /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/share/icons/hicolor/64x64/apps/ 
+Creating directory /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/share/icons/hicolor/128x128/apps/ 
+Creating directory /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/share/icons/hicolor/256x256/apps/ 
+Creating directory /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/share/icons/hicolor/scalable/apps/ 
+
+-- Deploying dependencies for existing files in AppDir -- 
+
+-- Deploying executables -- 
+Deploying executable /var/home/sanya/Neko_Throne/deployment/linux-amd64/Neko_Throne 
+Deploying dependencies for ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/Neko_Throne 
+Deploying shared library /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libQt6Widgets.so.6
+Deploying shared library /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libQt6Network.so.6
+Deploying shared library /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libQt6Concurrent.so.6
+Deploying shared library /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libQt6Gui.so.6
+Deploying shared library /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libQt6DBus.so.6
+Deploying shared library /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libQt6Core.so.6
+Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libGLX.so.0 
+Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libOpenGL.so.0 
+Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libSM.so.6 
+Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libICE.so.6 
+Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libX11.so.6 
+Deploying shared library /usr/lib/x86_64-linux-gnu/libXext.so.6
+Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libstdc++.so.6 
+Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libm.so.6 
+Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libgcc_s.so.1 
+Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libc.so.6 
+Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libGL.so.1 
+Deploying shared library /usr/lib/x86_64-linux-gnu/libxkbcommon.so.0
+Deploying shared library /usr/lib/x86_64-linux-gnu/libzstd.so.1
+Deploying shared library /app/lib/libgssapi_krb5.so.2
+Deploying shared library /usr/lib/x86_64-linux-gnu/libbrotlidec.so.1
+Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libz.so.1 
+Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libresolv.so.2 
+Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libEGL.so.1 
+Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libfontconfig.so.1 
+Deploying shared library /usr/lib/x86_64-linux-gnu/libglib-2.0.so.0
+Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libfreetype.so.6 
+Deploying shared library /usr/lib/x86_64-linux-gnu/libgthread-2.0.so.0
+Deploying shared library /usr/lib/x86_64-linux-gnu/libdbus-1.so.3
+Deploying shared library /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libicui18n.so.73
+Deploying shared library /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libicuuc.so.73
+Deploying shared library /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libicudata.so.73
+Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libGLdispatch.so.0 
+Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libxcb.so.1 
+Deploying shared library /app/lib/libkrb5.so.3
+Deploying shared library /app/lib/libk5crypto.so.3
+Deploying shared library /app/lib/libcom_err.so.3
+Deploying shared library /app/lib/libkrb5support.so.0
+Deploying shared library /usr/lib/x86_64-linux-gnu/libbrotlicommon.so.1
+Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libexpat.so.1 
+Deploying shared library /usr/lib/x86_64-linux-gnu/libpcre2-8.so.0
+Deploying shared library /usr/lib/x86_64-linux-gnu/libbz2.so.1
+Deploying shared library /usr/lib/x86_64-linux-gnu/libpng16.so.16
+Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libharfbuzz.so.0 
+Deploying shared library /usr/lib/x86_64-linux-gnu/libsystemd.so.0
+Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libpthread.so.0 
+Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libdl.so.2 
+Deploying shared library /usr/lib/x86_64-linux-gnu/libXau.so.6
+Deploying shared library /usr/lib/x86_64-linux-gnu/libgraphite2.so.3
+Deploying shared library /usr/lib/x86_64-linux-gnu/libcap.so.2
+
+-- Copying files into AppDir -- 
+Copying file /app/lib/libcom_err.so.3 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libcom_err.so.3 
+Copying file /app/lib/libgssapi_krb5.so.2 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libgssapi_krb5.so.2 
+Copying file /app/lib/libk5crypto.so.3 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libk5crypto.so.3 
+Copying file /app/lib/libkrb5.so.3 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libkrb5.so.3 
+Copying file /app/lib/libkrb5support.so.0 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libkrb5support.so.0 
+Copying file /usr/lib/x86_64-linux-gnu/libXau.so.6 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libXau.so.6 
+Copying file /usr/lib/x86_64-linux-gnu/libXext.so.6 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libXext.so.6 
+Copying file /usr/lib/x86_64-linux-gnu/libbrotlicommon.so.1 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libbrotlicommon.so.1 
+Copying file /usr/lib/x86_64-linux-gnu/libbrotlidec.so.1 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libbrotlidec.so.1 
+Copying file /usr/lib/x86_64-linux-gnu/libbz2.so.1 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libbz2.so.1 
+Copying file /usr/lib/x86_64-linux-gnu/libcap.so.2 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libcap.so.2 
+Copying file /usr/lib/x86_64-linux-gnu/libdbus-1.so.3 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libdbus-1.so.3 
+Copying file /usr/lib/x86_64-linux-gnu/libglib-2.0.so.0 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libglib-2.0.so.0 
+Copying file /usr/lib/x86_64-linux-gnu/libgraphite2.so.3 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libgraphite2.so.3 
+Copying file /usr/lib/x86_64-linux-gnu/libgthread-2.0.so.0 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libgthread-2.0.so.0 
+Copying file /usr/lib/x86_64-linux-gnu/libpcre2-8.so.0 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libpcre2-8.so.0 
+Copying file /usr/lib/x86_64-linux-gnu/libpng16.so.16 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libpng16.so.16 
+Copying file /usr/lib/x86_64-linux-gnu/libsystemd.so.0 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libsystemd.so.0 
+Copying file /usr/lib/x86_64-linux-gnu/libxkbcommon.so.0 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxkbcommon.so.0 
+Copying file /usr/lib/x86_64-linux-gnu/libzstd.so.1 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libzstd.so.1 
+Copying file /var/home/sanya/Neko_Throne/deployment/linux-amd64/Neko_Throne to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/bin/Neko_Throne 
+Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libQt6Concurrent.so.6 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libQt6Concurrent.so.6 
+Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libQt6Core.so.6 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libQt6Core.so.6 
+Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libQt6DBus.so.6 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libQt6DBus.so.6 
+Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libQt6Gui.so.6 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libQt6Gui.so.6 
+Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libQt6Network.so.6 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libQt6Network.so.6 
+Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libQt6Widgets.so.6 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libQt6Widgets.so.6 
+Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libicudata.so.73 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libicudata.so.73 
+Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libicui18n.so.73 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libicui18n.so.73 
+Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libicuuc.so.73 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libicuuc.so.73 
+WARNING: $NO_STRIP environment variable detected, not stripping binaries 
+Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/bin/Neko_Throne to $ORIGIN/../lib 
+Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libQt6Concurrent.so.6 to $ORIGIN 
+Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libQt6Core.so.6 to $ORIGIN 
+Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libQt6DBus.so.6 to $ORIGIN 
+Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libQt6Gui.so.6 to $ORIGIN 
+Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libQt6Network.so.6 to $ORIGIN 
+Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libQt6Widgets.so.6 to $ORIGIN 
+Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libXau.so.6 to $ORIGIN 
+Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libXext.so.6 to $ORIGIN 
+Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libbrotlicommon.so.1 to $ORIGIN 
+Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libbrotlidec.so.1 to $ORIGIN 
+Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libbz2.so.1 to $ORIGIN 
+Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libcap.so.2 to $ORIGIN 
+Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libcom_err.so.3 to $ORIGIN 
+Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libdbus-1.so.3 to $ORIGIN 
+Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libglib-2.0.so.0 to $ORIGIN 
+Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libgraphite2.so.3 to $ORIGIN 
+Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libgssapi_krb5.so.2 to $ORIGIN 
+Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libgthread-2.0.so.0 to $ORIGIN 
+Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libicudata.so.73 to $ORIGIN 
+Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libicui18n.so.73 to $ORIGIN 
+Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libicuuc.so.73 to $ORIGIN 
+Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libk5crypto.so.3 to $ORIGIN 
+Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libkrb5.so.3 to $ORIGIN 
+Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libkrb5support.so.0 to $ORIGIN 
+Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libpcre2-8.so.0 to $ORIGIN 
+Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libpng16.so.16 to $ORIGIN 
+Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libsystemd.so.0 to $ORIGIN 
+Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxkbcommon.so.0 to $ORIGIN 
+Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libzstd.so.1 to $ORIGIN 
+
+-- Running input plugin: qt -- 
+[qt/stdout] Using qmake: /var/home/sanya/Qt6.10/6.10.2/gcc_64/bin/qmake 
+[qt/stderr] linuxdeploy-plugin-qt version 1-alpha (git commit ID ce5291e), GitHub actions build 211 built on 2025-02-13 21:36:34 UTC
+[qt/stdout] 
+[qt/stdout] Using Qt version:  6.10.2  ( 6 ) 
+[qt/stdout]   libEGL.so.1  libGL.so.1  libGLX.so.0  libGLdispatch.so.0  libQt6Concurrent.so.6  libQt6Core.so.6  libQt6DBus.so.6  libQt6Gui.so.6  libQt6Network.so.6  libQt6Widgets.so.6  libX11.so.6  libXau.so.6  libXext.so.6  libbrotlicommon.so.1  libbrotlidec.so.1  libbz2.so.1  libc.so.6  libcap.so.2  libcom_err.so.3  libdbus-1.so.3  libdl.so.2  libexpat.so.1  libfontconfig.so.1  libfreetype.so.6  libgcc_s.so.1  libglib-2.0.so.0  libgraphite2.so.3  libgssapi_krb5.so.2  libgthread-2.0.so.0  libharfbuzz.so.0  libicudata.so.73  libicui18n.so.73  libicuuc.so.73  libk5crypto.so.3  libkrb5.so.3  libkrb5support.so.0  libm.so.6  libpcre2-8.so.0  libpng16.so.16  libpthread.so.0  libresolv.so.2  libstdc++.so.6  libsystemd.so.0  libxcb.so.1  libxkbcommon.so.0  libz.so.1  libzstd.so.1
+[qt/stdout] 
+[qt/stdout] WARNING: Using deprecated EXTRA_QT_PLUGINS env var 
+[qt/stdout] Found Qt modules: concurrent core dbus gui network widgets 
+[qt/stdout] Extra Qt modules:  
+[qt/stdout] 
+[qt/stdout] QT_INSTALL_LIBS: /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib 
+[qt/stdout] Prepending QT_INSTALL_LIBS path to $LD_LIBRARY_PATH, new $LD_LIBRARY_PATH: /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib:/app/lib 
+[qt/stdout] Prepending QT_INSTALL_BINS and QT_INSTALL_LIBEXECS paths to $PATH, new $PATH: /var/home/sanya/Qt6.10/6.10.2/gcc_64/bin:/var/home/sanya/Qt6.10/6.10.2/gcc_64/libexec:/var/home/sanya/Neko_Throne/tools-bin:/var/home/sanya/Neko_Throne/linuxdeploy-root/usr/bin:/var/home/sanya/Qt6.10/6.10.2/gcc_64/bin:/var/home/sanya/.npm-packages/bin:/var/home/sanya/Neko_Throne/node_modules/.bin:/var/home/sanya/node_modules/.bin:/var/home/node_modules/.bin:/var/node_modules/.bin:/node_modules/.bin:/usr/lib/sdk/node22/lib/node_modules/npm/node_modules/@npmcli/run-script/lib/node-gyp-bin:/usr/lib/sdk/golang/bin:/var/home/sanya/.var/app/com.visualstudio.code/config/Code/User/globalStorage/github.copilot-chat/debugCommand:/var/home/sanya/.var/app/com.visualstudio.code/config/Code/User/globalStorage/github.copilot-chat/copilotCli:/app/bin:/app/bin:/app/lib/rustup/bin:/app/lib/cargo/bin:/app/lib/golang/bin:/app/lib/node22/bin:/app/bin:/usr/bin:/app/tools/podman/bin:/usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/golang/bin:/usr/lib/sdk/node22/bin:/var/home/sanya/.var/app/com.visualstudio.code/data/node_modules/bin:/var/home/sanya/.var/app/com.visualstudio.code/data/vscode/extensions/ms-python.debugpy-2025.18.0-linux-x64/bundled/scripts/noConfigScripts:/app/lib/go/bin 
+[qt/stdout] 
+[qt/stdout] -- Deploying module: concurrent -- 
+[qt/stdout] 
+[qt/stdout] -- Deploying module: core -- 
+[qt/stdout] 
+[qt/stdout] -- Deploying module: dbus -- 
+[qt/stdout] 
+[qt/stdout] -- Deploying module: gui -- 
+[qt/stdout] Deploying platform plugins 
+[qt/stdout] Deploying shared library /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/platforms/libqxcb.so (destination: /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/platforms/)
+[qt/stdout] Deploying dependencies for ELF file /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/platforms/libqxcb.so 
+[qt/stdout] Deploying shared library /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libQt6XcbQpa.so.6
+[qt/stdout] Deploying shared library /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libQt6Gui.so.6
+[qt/stdout] Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libGL.so.1 
+[qt/stdout] Deploying shared library /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libQt6Core.so.6
+[qt/stdout] Deploying shared library /usr/lib/x86_64-linux-gnu/libxkbcommon.so.0
+[qt/stdout] Deploying shared library /usr/lib/x86_64-linux-gnu/libxkbcommon-x11.so.0
+[qt/stdout] Deploying shared library /usr/lib/x86_64-linux-gnu/libxcb-cursor.so.0
+[qt/stdout] Deploying shared library /usr/lib/x86_64-linux-gnu/libxcb-icccm.so.4
+[qt/stdout] Deploying shared library /usr/lib/x86_64-linux-gnu/libxcb-util.so.1
+[qt/stdout] Deploying shared library /usr/lib/x86_64-linux-gnu/libxcb-image.so.0
+[qt/stdout] Deploying shared library /usr/lib/x86_64-linux-gnu/libxcb-keysyms.so.1
+[qt/stdout] Deploying shared library /usr/lib/x86_64-linux-gnu/libxcb-randr.so.0
+[qt/stdout] Deploying shared library /usr/lib/x86_64-linux-gnu/libxcb-render-util.so.0
+[qt/stdout] Deploying shared library /usr/lib/x86_64-linux-gnu/libxcb-shm.so.0
+[qt/stdout] Deploying shared library /usr/lib/x86_64-linux-gnu/libxcb-sync.so.1
+[qt/stdout] Deploying shared library /usr/lib/x86_64-linux-gnu/libxcb-xfixes.so.0
+[qt/stdout] Deploying shared library /usr/lib/x86_64-linux-gnu/libxcb-render.so.0
+[qt/stdout] Deploying shared library /usr/lib/x86_64-linux-gnu/libxcb-shape.so.0
+[qt/stdout] Deploying shared library /usr/lib/x86_64-linux-gnu/libxcb-xkb.so.1
+[qt/stdout] Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libxcb.so.1 
+[qt/stdout] Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libX11-xcb.so.1 
+[qt/stdout] Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libX11.so.6 
+[qt/stdout] Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libstdc++.so.6 
+[qt/stdout] Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libm.so.6 
+[qt/stdout] Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libgcc_s.so.1 
+[qt/stdout] Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libc.so.6 
+[qt/stdout] Deploying shared library /usr/lib/x86_64-linux-gnu/libglib-2.0.so.0
+[qt/stdout] Deploying shared library /usr/lib/x86_64-linux-gnu/libgthread-2.0.so.0
+[qt/stdout] Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libEGL.so.1 
+[qt/stdout] Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libfontconfig.so.1 
+[qt/stdout] Deploying shared library /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libQt6DBus.so.6
+[qt/stdout] Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libz.so.1 
+[qt/stdout] Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libfreetype.so.6 
+[qt/stdout] Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libGLdispatch.so.0 
+[qt/stdout] Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libGLX.so.0 
+[qt/stdout] Deploying shared library /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libicui18n.so.73
+[qt/stdout] Deploying shared library /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libicuuc.so.73
+[qt/stdout] Deploying shared library /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libicudata.so.73
+[qt/stdout] Deploying shared library /usr/lib/x86_64-linux-gnu/libzstd.so.1
+[qt/stdout] Deploying shared library /usr/lib/x86_64-linux-gnu/libXau.so.6
+[qt/stdout] Deploying shared library /usr/lib/x86_64-linux-gnu/libpcre2-8.so.0
+[qt/stdout] Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libexpat.so.1 
+[qt/stdout] Deploying shared library /usr/lib/x86_64-linux-gnu/libdbus-1.so.3
+[qt/stdout] Deploying shared library /usr/lib/x86_64-linux-gnu/libbz2.so.1
+[qt/stdout] Deploying shared library /usr/lib/x86_64-linux-gnu/libpng16.so.16
+[qt/stdout] Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libharfbuzz.so.0 
+[qt/stdout] Deploying shared library /usr/lib/x86_64-linux-gnu/libbrotlidec.so.1
+[qt/stdout] Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libpthread.so.0 
+[qt/stdout] Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libdl.so.2 
+[qt/stdout] Deploying shared library /usr/lib/x86_64-linux-gnu/libsystemd.so.0
+[qt/stdout] Deploying shared library /usr/lib/x86_64-linux-gnu/libgraphite2.so.3
+[qt/stdout] Deploying shared library /usr/lib/x86_64-linux-gnu/libbrotlicommon.so.1
+[qt/stdout] Deploying shared library /usr/lib/x86_64-linux-gnu/libcap.so.2
+[qt/stdout] Deploying extra platform plugin:  libqwayland.so 
+[qt/stdout] Deploying shared library /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/platforms/libqwayland.so (destination: /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/platforms/)
+[qt/stdout] Deploying dependencies for ELF file /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/platforms/libqwayland.so 
+[qt/stdout] Deploying shared library /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libQt6WaylandClient.so.6
+[qt/stdout] Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libwayland-client.so.0 
+[qt/stdout] Deploying shared library /usr/lib/x86_64-linux-gnu/libwayland-cursor.so.0
+[qt/stdout] Deploying shared library /usr/lib/x86_64-linux-gnu/libffi.so.8
+[qt/stdout] Deploying Qt platforminputcontexts plugins 
+[qt/stdout] Deploying shared library /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/platforminputcontexts/libcomposeplatforminputcontextplugin.so (destination: /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/platforminputcontexts/)
+[qt/stdout] Deploying dependencies for ELF file /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/platforminputcontexts/libcomposeplatforminputcontextplugin.so 
+[qt/stdout] Deploying shared library /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/platforminputcontexts/libibusplatforminputcontextplugin.so (destination: /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/platforminputcontexts/)
+[qt/stdout] Deploying dependencies for ELF file /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/platforminputcontexts/libibusplatforminputcontextplugin.so 
+[qt/stdout] Deploying Qt imageformats plugins 
+[qt/stdout] Deploying shared library /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/imageformats/libqsvg.so (destination: /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/imageformats/)
+[qt/stdout] Deploying dependencies for ELF file /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/imageformats/libqsvg.so 
+[qt/stdout] Deploying shared library /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libQt6Svg.so.6
+[qt/stdout] Deploying shared library /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/imageformats/libqgif.so (destination: /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/imageformats/)
+[qt/stdout] Deploying dependencies for ELF file /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/imageformats/libqgif.so 
+[qt/stdout] Deploying shared library /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/imageformats/libqico.so (destination: /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/imageformats/)
+[qt/stdout] Deploying dependencies for ELF file /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/imageformats/libqico.so 
+[qt/stdout] Deploying shared library /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/imageformats/libqjpeg.so (destination: /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/imageformats/)
+[qt/stdout] Deploying dependencies for ELF file /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/imageformats/libqjpeg.so 
+[qt/stdout] Trying to deploy platform themes and style 
+[qt/stdout] Attempting to deploy libqxdgdesktopportal.so found at path /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/platformthemes 
+[qt/stdout] Deploying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/platformthemes/libqxdgdesktopportal.so to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/platformthemes/libqxdgdesktopportal.so 
+[qt/stdout] Deploying xcb-gl integrations 
+[qt/stdout] Deploying shared library /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/xcbglintegrations/libqxcb-egl-integration.so (destination: /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/xcbglintegrations/)
+[qt/stdout] Deploying dependencies for ELF file /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/xcbglintegrations/libqxcb-egl-integration.so 
+[qt/stdout] Deploying shared library /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/xcbglintegrations/libqxcb-glx-integration.so (destination: /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/xcbglintegrations/)
+[qt/stdout] Deploying dependencies for ELF file /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/xcbglintegrations/libqxcb-glx-integration.so 
+[qt/stdout] Deploying shared library /usr/lib/x86_64-linux-gnu/libxcb-glx.so.0
+[qt/stdout] 
+[qt/stdout] -- Deploying module: network -- 
+[qt/stdout] Deploying Qt tls plugins 
+[qt/stdout] Deploying shared library /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/tls/libqcertonlybackend.so (destination: /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/tls/)
+[qt/stdout] Deploying dependencies for ELF file /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/tls/libqcertonlybackend.so 
+[qt/stdout] Deploying shared library /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libQt6Network.so.6
+[qt/stdout] Deploying shared library /app/lib/libgssapi_krb5.so.2
+[qt/stdout] Skipping deployment of blacklisted library /usr/lib/x86_64-linux-gnu/libresolv.so.2 
+[qt/stdout] Deploying shared library /app/lib/libkrb5.so.3
+[qt/stdout] Deploying shared library /app/lib/libk5crypto.so.3
+[qt/stdout] Deploying shared library /app/lib/libcom_err.so.3
+[qt/stdout] Deploying shared library /app/lib/libkrb5support.so.0
+[qt/stdout] Deploying shared library /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/tls/libqopensslbackend.so (destination: /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/tls/)
+[qt/stdout] Deploying dependencies for ELF file /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/tls/libqopensslbackend.so 
+[qt/stdout] 
+[qt/stdout] -- Deploying module: widgets -- 
+[qt/stdout] 
+[qt/stdout] -- Deploying translations -- 
+[qt/stdout] Qt translations directory: /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations 
+[qt/stdout] Deploying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_ar.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_ar.qm 
+[qt/stdout] Deploying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_bg.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_bg.qm 
+[qt/stdout] Deploying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_ca.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_ca.qm 
+[qt/stdout] Deploying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_cs.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_cs.qm 
+[qt/stdout] Deploying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_da.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_da.qm 
+[qt/stdout] Deploying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_de.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_de.qm 
+[qt/stdout] Deploying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_en.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_en.qm 
+[qt/stdout] Deploying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_es.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_es.qm 
+[qt/stdout] Deploying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_fa.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_fa.qm 
+[qt/stdout] Deploying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_fi.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_fi.qm 
+[qt/stdout] Deploying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_fr.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_fr.qm 
+[qt/stdout] Deploying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_gd.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_gd.qm 
+[qt/stdout] Deploying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_he.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_he.qm 
+[qt/stdout] Deploying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_hr.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_hr.qm 
+[qt/stdout] Deploying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_hu.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_hu.qm 
+[qt/stdout] Deploying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_it.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_it.qm 
+[qt/stdout] Deploying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_ja.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_ja.qm 
+[qt/stdout] Deploying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_ka.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_ka.qm 
+[qt/stdout] Deploying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_ko.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_ko.qm 
+[qt/stdout] Deploying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_lg.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_lg.qm 
+[qt/stdout] Deploying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_lv.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_lv.qm 
+[qt/stdout] Deploying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_nl.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_nl.qm 
+[qt/stdout] Deploying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_nn.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_nn.qm 
+[qt/stdout] Deploying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_pl.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_pl.qm 
+[qt/stdout] Deploying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_pt_BR.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_pt_BR.qm 
+[qt/stdout] Deploying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_ru.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_ru.qm 
+[qt/stdout] Deploying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_sk.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_sk.qm 
+[qt/stdout] Deploying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_sv.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_sv.qm 
+[qt/stdout] Deploying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_tr.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_tr.qm 
+[qt/stdout] Deploying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_uk.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_uk.qm 
+[qt/stdout] Deploying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_zh_CN.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_zh_CN.qm 
+[qt/stdout] Deploying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_zh_TW.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_zh_TW.qm 
+[qt/stdout] Creating symlink for file /var/home/sanya/Neko_Throne/deployment/linux-amd64/lang/fa_IR.qm in/as /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/fa_IR.qm 
+[qt/stdout] Creating symlink for file /var/home/sanya/Neko_Throne/deployment/linux-amd64/lang/ru_RU.qm in/as /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/ru_RU.qm 
+[qt/stdout] Creating symlink for file /var/home/sanya/Neko_Throne/deployment/linux-amd64/lang/zh_CN.qm in/as /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/zh_CN.qm 
+[qt/stdout] 
+[qt/stdout] -- Executing deferred operations -- 
+[qt/stdout] Copying file /app/lib/libcom_err.so.3 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libcom_err.so.3 
+[qt/stdout] Copying file /app/lib/libgssapi_krb5.so.2 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libgssapi_krb5.so.2 
+[qt/stdout] Copying file /app/lib/libk5crypto.so.3 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libk5crypto.so.3 
+[qt/stdout] Copying file /app/lib/libkrb5.so.3 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libkrb5.so.3 
+[qt/stdout] Copying file /app/lib/libkrb5support.so.0 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libkrb5support.so.0 
+[qt/stdout] Copying file /usr/lib/x86_64-linux-gnu/libXau.so.6 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libXau.so.6 
+[qt/stdout] Copying file /usr/lib/x86_64-linux-gnu/libbrotlicommon.so.1 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libbrotlicommon.so.1 
+[qt/stdout] Copying file /usr/lib/x86_64-linux-gnu/libbrotlidec.so.1 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libbrotlidec.so.1 
+[qt/stdout] Copying file /usr/lib/x86_64-linux-gnu/libbz2.so.1 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libbz2.so.1 
+[qt/stdout] Copying file /usr/lib/x86_64-linux-gnu/libcap.so.2 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libcap.so.2 
+[qt/stdout] Copying file /usr/lib/x86_64-linux-gnu/libdbus-1.so.3 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libdbus-1.so.3 
+[qt/stdout] Copying file /usr/lib/x86_64-linux-gnu/libffi.so.8 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libffi.so.8 
+[qt/stdout] Copying file /usr/lib/x86_64-linux-gnu/libglib-2.0.so.0 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libglib-2.0.so.0 
+[qt/stdout] Copying file /usr/lib/x86_64-linux-gnu/libgraphite2.so.3 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libgraphite2.so.3 
+[qt/stdout] Copying file /usr/lib/x86_64-linux-gnu/libgthread-2.0.so.0 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libgthread-2.0.so.0 
+[qt/stdout] Copying file /usr/lib/x86_64-linux-gnu/libpcre2-8.so.0 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libpcre2-8.so.0 
+[qt/stdout] Copying file /usr/lib/x86_64-linux-gnu/libpng16.so.16 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libpng16.so.16 
+[qt/stdout] Copying file /usr/lib/x86_64-linux-gnu/libsystemd.so.0 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libsystemd.so.0 
+[qt/stdout] Copying file /usr/lib/x86_64-linux-gnu/libwayland-cursor.so.0 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libwayland-cursor.so.0 
+[qt/stdout] Copying file /usr/lib/x86_64-linux-gnu/libxcb-cursor.so.0 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxcb-cursor.so.0 
+[qt/stdout] Copying file /usr/lib/x86_64-linux-gnu/libxcb-glx.so.0 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxcb-glx.so.0 
+[qt/stdout] Copying file /usr/lib/x86_64-linux-gnu/libxcb-icccm.so.4 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxcb-icccm.so.4 
+[qt/stdout] Copying file /usr/lib/x86_64-linux-gnu/libxcb-image.so.0 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxcb-image.so.0 
+[qt/stdout] Copying file /usr/lib/x86_64-linux-gnu/libxcb-keysyms.so.1 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxcb-keysyms.so.1 
+[qt/stdout] Copying file /usr/lib/x86_64-linux-gnu/libxcb-randr.so.0 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxcb-randr.so.0 
+[qt/stdout] Copying file /usr/lib/x86_64-linux-gnu/libxcb-render-util.so.0 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxcb-render-util.so.0 
+[qt/stdout] Copying file /usr/lib/x86_64-linux-gnu/libxcb-render.so.0 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxcb-render.so.0 
+[qt/stdout] Copying file /usr/lib/x86_64-linux-gnu/libxcb-shape.so.0 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxcb-shape.so.0 
+[qt/stdout] Copying file /usr/lib/x86_64-linux-gnu/libxcb-shm.so.0 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxcb-shm.so.0 
+[qt/stdout] Copying file /usr/lib/x86_64-linux-gnu/libxcb-sync.so.1 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxcb-sync.so.1 
+[qt/stdout] Copying file /usr/lib/x86_64-linux-gnu/libxcb-util.so.1 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxcb-util.so.1 
+[qt/stdout] Copying file /usr/lib/x86_64-linux-gnu/libxcb-xfixes.so.0 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxcb-xfixes.so.0 
+[qt/stdout] Copying file /usr/lib/x86_64-linux-gnu/libxcb-xkb.so.1 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxcb-xkb.so.1 
+[qt/stdout] Copying file /usr/lib/x86_64-linux-gnu/libxkbcommon-x11.so.0 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxkbcommon-x11.so.0 
+[qt/stdout] Copying file /usr/lib/x86_64-linux-gnu/libxkbcommon.so.0 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxkbcommon.so.0 
+[qt/stdout] Copying file /usr/lib/x86_64-linux-gnu/libzstd.so.1 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libzstd.so.1 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libQt6Core.so.6 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libQt6Core.so.6 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libQt6DBus.so.6 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libQt6DBus.so.6 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libQt6Gui.so.6 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libQt6Gui.so.6 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libQt6Network.so.6 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libQt6Network.so.6 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libQt6Svg.so.6 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libQt6Svg.so.6 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libQt6WaylandClient.so.6 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libQt6WaylandClient.so.6 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libQt6XcbQpa.so.6 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libQt6XcbQpa.so.6 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libicudata.so.73 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libicudata.so.73 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libicui18n.so.73 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libicui18n.so.73 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/lib/libicuuc.so.73 to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libicuuc.so.73 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/imageformats/libqgif.so to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/imageformats/libqgif.so 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/imageformats/libqico.so to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/imageformats/libqico.so 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/imageformats/libqjpeg.so to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/imageformats/libqjpeg.so 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/imageformats/libqsvg.so to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/imageformats/libqsvg.so 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/platforminputcontexts/libcomposeplatforminputcontextplugin.so to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/platforminputcontexts/libcomposeplatforminputcontextplugin.so 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/platforminputcontexts/libibusplatforminputcontextplugin.so to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/platforminputcontexts/libibusplatforminputcontextplugin.so 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/platforms/libqwayland.so to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/platforms/libqwayland.so 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/platforms/libqxcb.so to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/platforms/libqxcb.so 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/platformthemes/libqxdgdesktopportal.so to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/platformthemes/libqxdgdesktopportal.so 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/tls/libqcertonlybackend.so to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/tls/libqcertonlybackend.so 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/tls/libqopensslbackend.so to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/tls/libqopensslbackend.so 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/xcbglintegrations/libqxcb-egl-integration.so to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/xcbglintegrations/libqxcb-egl-integration.so 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/plugins/xcbglintegrations/libqxcb-glx-integration.so to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/xcbglintegrations/libqxcb-glx-integration.so 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_ar.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_ar.qm 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_bg.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_bg.qm 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_ca.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_ca.qm 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_cs.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_cs.qm 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_da.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_da.qm 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_de.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_de.qm 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_en.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_en.qm 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_es.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_es.qm 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_fa.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_fa.qm 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_fi.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_fi.qm 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_fr.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_fr.qm 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_gd.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_gd.qm 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_he.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_he.qm 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_hr.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_hr.qm 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_hu.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_hu.qm 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_it.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_it.qm 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_ja.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_ja.qm 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_ka.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_ka.qm 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_ko.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_ko.qm 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_lg.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_lg.qm 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_lv.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_lv.qm 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_nl.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_nl.qm 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_nn.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_nn.qm 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_pl.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_pl.qm 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_pt_BR.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_pt_BR.qm 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_ru.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_ru.qm 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_sk.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_sk.qm 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_sv.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_sv.qm 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_tr.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_tr.qm 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_uk.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_uk.qm 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_zh_CN.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_zh_CN.qm 
+[qt/stdout] Copying file /var/home/sanya/Qt6.10/6.10.2/gcc_64/translations/qtbase_zh_TW.qm to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/translations/qtbase_zh_TW.qm 
+[qt/stdout] WARNING: $NO_STRIP environment variable detected, not stripping binaries 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libQt6Core.so.6 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libQt6DBus.so.6 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libQt6Gui.so.6 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libQt6Network.so.6 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libQt6Svg.so.6 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libQt6WaylandClient.so.6 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libQt6XcbQpa.so.6 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libXau.so.6 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libbrotlicommon.so.1 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libbrotlidec.so.1 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libbz2.so.1 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libcap.so.2 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libcom_err.so.3 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libdbus-1.so.3 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libffi.so.8 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libglib-2.0.so.0 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libgraphite2.so.3 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libgssapi_krb5.so.2 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libgthread-2.0.so.0 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libicudata.so.73 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libicui18n.so.73 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libicuuc.so.73 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libk5crypto.so.3 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libkrb5.so.3 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libkrb5support.so.0 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libpcre2-8.so.0 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libpng16.so.16 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libsystemd.so.0 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libwayland-cursor.so.0 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxcb-cursor.so.0 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxcb-glx.so.0 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxcb-icccm.so.4 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxcb-image.so.0 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxcb-keysyms.so.1 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxcb-randr.so.0 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxcb-render-util.so.0 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxcb-render.so.0 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxcb-shape.so.0 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxcb-shm.so.0 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxcb-sync.so.1 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxcb-util.so.1 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxcb-xfixes.so.0 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxcb-xkb.so.1 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxkbcommon-x11.so.0 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libxkbcommon.so.0 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/lib/libzstd.so.1 to $ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/imageformats/libqgif.so to $ORIGIN/../../lib:$ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/imageformats/libqico.so to $ORIGIN/../../lib:$ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/imageformats/libqjpeg.so to $ORIGIN/../../lib:$ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/imageformats/libqsvg.so to $ORIGIN/../../lib:$ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/platforminputcontexts/libcomposeplatforminputcontextplugin.so to $ORIGIN/../../lib:$ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/platforminputcontexts/libibusplatforminputcontextplugin.so to $ORIGIN/../../lib:$ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/platforms/libqwayland.so to $ORIGIN/../../lib:$ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/platforms/libqxcb.so to $ORIGIN/../../lib:$ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/tls/libqcertonlybackend.so to $ORIGIN/../../lib:$ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/tls/libqopensslbackend.so to $ORIGIN/../../lib:$ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/xcbglintegrations/libqxcb-egl-integration.so to $ORIGIN/../../lib:$ORIGIN 
+[qt/stdout] Setting rpath in ELF file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/plugins/xcbglintegrations/libqxcb-glx-integration.so to $ORIGIN/../../lib:$ORIGIN 
+[qt/stdout] 
+[qt/stdout] -- Creating qt.conf in AppDir -- 
+[qt/stdout] Creating Qt conf file: /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/bin/qt.conf 
+[qt/stdout] 
+[qt/stdout] -- Creating AppRun hook -- 
+[qt/stdout] Creating AppRun hook file: /var/home/sanya/Neko_Throne/deployment/linux-amd64/apprun-hooks/linuxdeploy-plugin-qt-hook.sh 
+[qt/stdout] 
+[qt/stdout] Done! 
+
+-- Deploying icons -- 
+Deploying icon /var/home/sanya/Neko_Throne/deployment/linux-amd64/Throne.png 
+
+-- Deploying desktop files -- 
+Deploying desktop file /var/home/sanya/Neko_Throne/res/public/Throne.desktop 
+
+-- Copying files into AppDir -- 
+Copying file /var/home/sanya/Neko_Throne/deployment/linux-amd64/Throne.png to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/share/icons/hicolor/512x512/apps/Throne.png 
+Copying file /var/home/sanya/Neko_Throne/res/public/Throne.desktop to /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/share/applications/Throne.desktop 
+WARNING: $NO_STRIP environment variable detected, not stripping binaries 
+
+-- Deploying files into AppDir root directory -- 
+Deploying files to AppDir root using desktop file: /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/share/applications/Throne.desktop 
+Deploying desktop file to AppDir root: /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/share/applications/Throne.desktop 
+Creating symlink for file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/share/applications/Throne.desktop in/as /var/home/sanya/Neko_Throne/deployment/linux-amd64 
+Deploying icon to AppDir root: /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/share/icons/hicolor/512x512/apps/Throne.png 
+Creating symlink for file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/share/icons/hicolor/512x512/apps/Throne.png in/as /var/home/sanya/Neko_Throne/deployment/linux-amd64 
+Deploying AppRun symlink for executable in AppDir root: /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/bin/Neko_Throne 
+Creating symlink for file /var/home/sanya/Neko_Throne/deployment/linux-amd64/usr/bin/Neko_Throne in/as /var/home/sanya/Neko_Throne/deployment/linux-amd64/AppRun 
+Skipping manual strip to ensure binary integrity...
+[3/4] Enhancing portability (RPATH & missing libs)...
+[4/4] Creating wrapper script...
+Deployment finished! Portable files are in /var/home/sanya/Neko_Throne/deployment/linux-amd64

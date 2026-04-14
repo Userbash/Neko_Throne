@@ -16,11 +16,11 @@
 inline QString software_name;
 inline QString software_core_name;
 
+#include <QPointer>
+
 // MainWindow functions
 class QWidget;
-inline QWidget *mainwindow;
-
-#include <QPointer>
+inline QPointer<QWidget> mainwindow;
 
 template<typename... Args>
 class SafeUIFunction {

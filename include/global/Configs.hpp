@@ -1,5 +1,8 @@
 #pragma once
 
+#include <mutex>
+#include <chrono>
+
 #include "Const.hpp"
 #include "Utils.hpp"
 #include "ConfigItem.hpp"
@@ -12,6 +15,8 @@ namespace Configs {
     QString FindCoreRealPath();
 
     bool IsAdmin(bool forceRenew=false);
+
+    bool IsCorePrivileged(bool forceRenew=false);
 
     bool isSetuidSet(const std::string& path);
 

@@ -18,6 +18,7 @@ namespace Configs
         QString server;
         int server_port = 0;
         bool invalid = false;
+        QString type;  // Added: type field to support invalid/base outbound objects
         std::shared_ptr<DialFields> dialFields = std::make_shared<DialFields>();
 
         outbound()
@@ -81,6 +82,8 @@ namespace Configs
         }
 
         virtual bool IsXray() { return false; }
+
+        virtual bool MustXray() { return false; }
 
         virtual bool HasMux() { return false; }
 

@@ -190,8 +190,9 @@ bool Linux_IsPathNosuid(const QString &path) {
     QString bestMount;
     QString bestOpts;
 
-    while (!f.atEnd()) {
+    while (true) {
         QByteArray lineBytes = f.readLine();
+        if (lineBytes.isEmpty()) break;
         const QString line = QString::fromUtf8(lineBytes).trimmed();
         const QStringList fields = line.split(' ', Qt::SkipEmptyParts);
         if (fields.size() < 6) continue;

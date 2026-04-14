@@ -32,8 +32,13 @@ if [ ! -f "srslist.h" ]; then
 fi
 
 echo -e "${YELLOW}[1/5] Setup Environment (Qt 6.10.2)...${NC}"
-# Жесткая привязка к версии 6.10.2
-export QT_ROOT="/var/home/sanya/Qt6.10/6.10.2/gcc_64"
+# Qt root with environment fallback. Supports custom QT_ROOT_CUSTOM for alternative installations.
+export QT_ROOT="${QT_ROOT_CUSTOM:-/var/home/sanya/Qt6.10/6.10.2/gcc_64}"
+if [ ! -d "$QT_ROOT" ]; then
+    echo -e "${RED}Error: Qt root not found at $QT_ROOT${NC}"
+    echo "Set QT_ROOT_CUSTOM environment variable to override the default path."
+    exit 1
+fi
 export PATH="$QT_ROOT/bin:$PATH:$(go env GOPATH)/bin"
 export CMAKE_PREFIX_PATH="$QT_ROOT"
 export GOOS=linux
@@ -48,16 +53,17 @@ echo "Compiling translations with lrelease (from Qt 6.10.2)..."
 find res/translations -name "*.ts" -exec $QT_ROOT/bin/lrelease {} \; >> "$LOG_FILE" 2>&1
 cp res/translations/*.qm build/lang/ || true
 
-echo -e "${YELLOW}[2/5] Building Go Backend Core...${NC}"
+echo -e "${YELLOW}[2/5] Building Go Backend Core (All Protocols + xhttp)...${NC}"
 {
     cd core/server
     go mod tidy
     VERSION_SINGBOX=$(go list -m -f '{{.Version}}' github.com/sagernet/sing-box)
-    go build -v -trimpath -ldflags="-w -s -X 'github.com/sagernet/sing-box/constant.Version=${VERSION_SINGBOX}' -checklinkname=0" -tags "with_clash_api,with_gvisor,with_quic,with_wireguard,with_utls,with_dhcp,with_tailscale,badlinkname,tfogo_checklinkname0" -o ../../build/NekoCore .
+    # Full protocol support: VLESS, VMess, Reality, xhttp, gRPC, QUIC, Wireguard, etc.
+    go build -v -trimpath -ldflags="-w -s -X 'github.com/sagernet/sing-box/constant.Version=${VERSION_SINGBOX}' -checklinkname=0" -tags "with_clash_api,with_gvisor,with_quic,with_grpc,with_wireguard,with_utls,with_dhcp,with_tailscale,with_v2ray_http,with_xhttp,with_vless,with_vmess,badlinkname,tfogo_checklinkname0" -o ../../build/NekoCore .
     cd ../..
 } >> "$LOG_FILE" 2>&1
 
-echo -e "${YELLOW}[3/5] Compiling C++ Frontend (GUI) with g++ (NO LTO, O2 OPT, CCACHE)...${NC}"
+echo -e "${YELLOW}[3/5] Compiling C++ Frontend (GUI) with g++ (NO LTO, -O2 optimization, CCACHE)...${NC}"
 mkdir -p build && cd build
 # Принудительно g++, без LTO, без PGO, оптимизация -O2, использование ccache
 cmake -GNinja \
@@ -96,5 +102,5 @@ fi
 echo -e "${GREEN}✔ STRICT BUILD SUCCESSFUL!${NC}"
 echo "Qt Version: 6.10.2"
 echo "Compiler:   g++"
-echo "Optimized:  No (-O0)"
+echo "Optimized:  Yes (-O2)"
 echo "LTO:        No"

@@ -148,7 +148,7 @@ namespace Configs {
             object["headers"] = qStringListToJsonObject(headers);
         }
         if (!host.isEmpty()) {
-            if (type == "http" || type == "httpupgrade") object["host"] = host;
+            if (type == "http" || type == "httpupgrade" || type == "xhttp") object["host"] = host;
             if (type == "ws") {
                 auto headersObj = object["headers"].isObject() ? object["headers"].toObject() : QJsonObject();
                 headersObj["Host"] = host;

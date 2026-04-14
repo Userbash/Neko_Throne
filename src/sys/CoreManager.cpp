@@ -1,3 +1,4 @@
+#include <mutex>
 #include "include/sys/CoreManager.hpp"
 #include "include/api/CoreVersionParser.hpp"
 #include "include/global/Configs.hpp"
@@ -82,7 +83,9 @@ namespace Configs_sys {
     }
 
     void CoreManager::downloadLatestCore(std::function<void(bool, const QString &)> callback) {
-        (void) QtConcurrent::run([this, cb = std::move(callback)] {
+        // Use QPointer to safely track this object lifetime across async operations
+        QPointer<CoreManager> self(this);
+        (void) QtConcurrent::run([self, cb = std::move(callback)] {
             QString platform;
 #if defined(Q_OS_WIN)
             platform = "windows-amd64";
@@ -94,17 +97,21 @@ namespace Configs_sys {
                 "https://api.github.com/repos/DpaKc404/Neko_Throne/releases/latest");
 
             if (!resp.error.isEmpty()) {
-                QMetaObject::invokeMethod(this, [cb, err = resp.error] {
-                    cb(false, "Failed to check for updates: " + err);
-                });
+                if (self) {
+                    QMetaObject::invokeMethod(self, [cb, err = resp.error] {
+                        cb(false, "Failed to check for updates: " + err);
+                    });
+                }
                 return;
             }
 
             auto doc = QJsonDocument::fromJson(resp.data);
             if (doc.isNull()) {
-                QMetaObject::invokeMethod(this, [cb] {
-                    cb(false, "Invalid response from GitHub API");
-                });
+                if (self) {
+                    QMetaObject::invokeMethod(self, [cb] {
+                        cb(false, "Invalid response from GitHub API");
+                    });
+                }
                 return;
             }
 
@@ -120,38 +127,54 @@ namespace Configs_sys {
             }
 
             if (downloadUrl.isEmpty()) {
-                QMetaObject::invokeMethod(this, [cb, platform] {
-                    cb(false, "No Core binary found for platform: " + platform);
-                });
+                if (self) {
+                    QMetaObject::invokeMethod(self, [cb, platform] {
+                        cb(false, "No Core binary found for platform: " + platform);
+                    });
+                }
                 return;
             }
 
-            auto destPath = coreBinaryPath();
+            auto destPath = self ? self->coreBinaryPath() : QString();
+            if (destPath.isEmpty()) {
+                if (self) {
+                    QMetaObject::invokeMethod(self, [cb] {
+                        cb(false, "CoreManager destroyed during download");
+                    });
+                }
+                return;
+            }
             auto tempPath = destPath + ".update";
 
             auto dlError = Configs_network::NetworkRequestHelper::DownloadAsset(downloadUrl, tempPath);
             if (!dlError.isEmpty()) {
                 QFile::remove(tempPath);
                 QString dlErr = dlError;
-                QMetaObject::invokeMethod(this, [cb, dlErr] {
-                    cb(false, "Download failed: " + dlErr);
-                });
+                if (self) {
+                    QMetaObject::invokeMethod(self, [cb, dlErr] {
+                        cb(false, "Download failed: " + dlErr);
+                    });
+                }
                 return;
             }
 
             // Replace old binary
             QFile::remove(destPath + ".bak");
             if (!QFile::rename(destPath, destPath + ".bak")) {
-                QMetaObject::invokeMethod(this, [cb] {
-                    cb(false, "Failed to backup Core binary");
-                });
+                if (self) {
+                    QMetaObject::invokeMethod(self, [cb] {
+                        cb(false, "Failed to backup Core binary");
+                    });
+                }
                 return;
             }
             if (!QFile::rename(tempPath, destPath)) {
                 QFile::rename(destPath + ".bak", destPath);
-                QMetaObject::invokeMethod(this, [cb] {
-                    cb(false, "Failed to replace Core binary");
-                });
+                if (self) {
+                    QMetaObject::invokeMethod(self, [cb] {
+                        cb(false, "Failed to replace Core binary");
+                    });
+                }
                 return;
             }
 
@@ -162,10 +185,12 @@ namespace Configs_sys {
                 QFileDevice::ReadOther | QFileDevice::ExeOther);
 #endif
 
-            QMetaObject::invokeMethod(this, [this, cb] {
-                refreshVersions();
-                cb(true, QString());
-            });
+            if (self) {
+                QMetaObject::invokeMethod(self, [self, cb] {
+                    self->refreshVersions();
+                    cb(true, QString());
+                });
+            }
         });
     }
 

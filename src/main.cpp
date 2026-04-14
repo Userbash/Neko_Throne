@@ -1,4 +1,5 @@
 #include <csignal>
+#include <atomic>
 
 // Compile-time architecture enforcement — must be first
 #include "include/global/ArchGuard.hpp"
@@ -45,7 +46,7 @@
 #include <unistd.h>
 #endif
 
-static bool is_exiting_global = false;
+static std::atomic<bool> is_exiting_global(false);
 
 #ifdef Q_OS_LINUX
 static int sig_pipe_fd[2];
@@ -56,7 +57,7 @@ static int sig_pipe_fd[2];
  */
 void unix_signal_handler(int signum) {
     char a = (char)signum;
-    if (::write(sig_pipe_fd[0], &a, 1) == -1) {
+    if (::write(sig_pipe_fd[1], &a, 1) == -1) {
         // Ignore errors
     }
 }
@@ -67,13 +68,13 @@ void unix_signal_handler(int signum) {
  * Ensures proxy core is stopped and state is saved before termination.
  */
 void signal_handler(int signum) {
-    if (is_exiting_global) return;
-    is_exiting_global = true;
-    
+    if (is_exiting_global.exchange(true)) return;
+
     fprintf(stderr, "Signal %d received, exiting...\n", signum);
     if (QCoreApplication::instance()) {
-        if (GetMainWindow()) {
-            GetMainWindow()->prepare_exit();
+        auto mw = GetMainWindow();
+        if (mw) {
+            mw->prepare_exit();
         }
         QCoreApplication::quit();
     } else {
@@ -98,9 +99,13 @@ void loadTranslate(const QString& locale) {
         QCoreApplication::removeTranslator(trans_qt);
         delete trans_qt;
     }
-    
-    trans = new QTranslator(qApp);
-    trans_qt = new QTranslator(qApp);
+
+    // Create new translators in temporaries first for exception safety.
+    // If the second new throws, the first is not assigned and cleanup will occur.
+    auto newTrans = new QTranslator(qApp);
+    auto newTransQt = new QTranslator(qApp);
+    trans = newTrans;
+    trans_qt = newTransQt;
     QLocale::setDefault(QLocale(locale));
     
     // Load app-specific translations
@@ -244,10 +249,8 @@ int main(int argc, char* argv[]) {
 #endif
 
     if (args.contains("--crash-now")) {
-        printf("DEBUG: Triggering manual SIGSEGV...\n");
-        int *p = nullptr;
-        *p = 123;
-        return 0;
+        printf("DEBUG: Debug crash requested. Exiting normally.\n");
+        return 1;
     }
 
     QApplication a(argc, argv);

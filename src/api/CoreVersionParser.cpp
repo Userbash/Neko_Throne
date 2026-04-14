@@ -1,3 +1,4 @@
+#include <mutex>
 // SPDX-License-Identifier: GPL-2.0-or-later
 // ═══════════════════════════════════════════════════════════════════════════════
 // src/api/CoreVersionParser.cpp — Implementation

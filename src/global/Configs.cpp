@@ -79,6 +79,10 @@ namespace Configs_ConfigItem {
         QJsonObject object;
         for (const auto &_item: _map) {
             auto item = _item.get();
+            if (!item || !item->ptr) {
+                qWarning() << "Null pointer in config item during ToJson";
+                continue;
+            }
             if (without.contains(item->name)) continue;
             switch (item->type) {
                 case itemType::string:
@@ -136,8 +140,8 @@ namespace Configs_ConfigItem {
             auto value = object[key];
             auto item = _map[key].get();
 
-            if (item == nullptr)
-                continue; // intentionally ignored — key exists in JSON but not in map
+            if (item == nullptr || !item->ptr)
+                continue; // intentionally ignored — key exists in JSON but not in map, or ptr is null
 
             // Update the field value based on its registered type.
             switch (item->type) {
@@ -460,6 +464,7 @@ namespace Configs {
     }
 
     short isAdminCache = -1;
+    short isCorePrivilegedCache = -1;
 
     // isSetuidSet — checks whether the SUID bit is set on the given binary.
     // Used to detect if the core binary has elevated privileges on Linux.
@@ -474,7 +479,9 @@ namespace Configs {
 #endif
     }
 
-    // IsAdmin — primary check: does the running process have privileges to start TUN?
+    // IsAdmin — primary check: does the CURRENT (GUI) process have administrative privileges?
+    // On Windows, this checks if the user is in the Administrators group.
+    // On Linux, this checks if the current UID is 0 (root).
     bool IsAdmin(bool forceRenew) {
         if (isAdminCache >= 0 && !forceRenew) return isAdminCache;
 
@@ -485,16 +492,32 @@ namespace Configs {
             dataStore->windows_set_admin = admin;
         }
 #else
+        admin = (::getuid() == 0);
+#endif
+        isAdminCache = admin;
+        return admin;
+    };
+
+    // IsCorePrivileged — checks whether the backend core process has administrative privileges.
+    // This is required for operations performed by the core itself (e.g. TUN setup).
+    bool IsCorePrivileged(bool forceRenew) {
+        if (isCorePrivilegedCache >= 0 && !forceRenew) return isCorePrivilegedCache;
+
+        bool privileged = false;
+#ifdef Q_OS_WIN
+        // On Windows, if the GUI is elevated, the core it spawns will be elevated.
+        privileged = IsAdmin(forceRenew);
+#else
         bool ok = false;
         bool isPrivileged = false;
         if (API::defaultClient) {
             isPrivileged = API::defaultClient->IsPrivileged(&ok);
         }
-        admin = ok && isPrivileged;
+        privileged = ok && isPrivileged;
 #endif
-        isAdminCache = admin;
-        return admin;
-    };
+        isCorePrivilegedCache = privileged;
+        return privileged;
+    }
 
     QString GetBasePath() {
         if (dataStore->flag_use_appdata) return QStandardPaths::writableLocation(

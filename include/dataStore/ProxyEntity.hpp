@@ -17,6 +17,7 @@
 #include "include/configs/outbounds/tuic.h"
 #include "include/configs/outbounds/vless.h"
 #include "include/configs/outbounds/vmess.h"
+#include "include/configs/outbounds/xrayVmess.h"
 #include "include/configs/outbounds/xrayVless.h"
 
 #include "include/global/Configs.hpp"
@@ -63,6 +64,10 @@ namespace Configs {
         [[nodiscard]] Configs::vmess *VMess() const {
             return dynamic_cast<Configs::vmess *>(outbound.get());
         };
+
+        [[nodiscard]] Configs::xrayVmess *XrayVMess() const {
+            return dynamic_cast<Configs::xrayVmess *>(outbound.get());
+        }
 
         [[nodiscard]] Configs::Trojan *Trojan() const {
             return dynamic_cast<Configs::Trojan *>(outbound.get());

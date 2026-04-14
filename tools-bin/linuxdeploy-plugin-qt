@@ -1,0 +1,2 @@
+#!/bin/bash
+exec "/var/home/sanya/Neko_Throne/linuxdeploy-plugin-qt-root/AppRun" "$@"

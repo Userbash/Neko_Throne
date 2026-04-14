@@ -46,6 +46,11 @@ func BatchURLTest(ctx context.Context, i *boxbox.Box, outboundTags []string, url
 	if timeout <= 0 {
 		timeout = URLTestTimeout
 	}
+
+	// Create derived context with cancel() to properly sync with spawned goroutines
+	ctxWithCancel, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	outbounds := service.FromContext[adapter.OutboundManager](i.Context())
 	resMap := make(map[string]*URLTestResult)
 	resAccess := sync.Mutex{}
@@ -55,7 +60,7 @@ func BatchURLTest(ctx context.Context, i *boxbox.Box, outboundTags []string, url
 	wg.Add(len(outboundTags))
 	for _, tag := range outboundTags {
 		select {
-		case <-ctx.Done():
+		case <-ctxWithCancel.Done():
 			wg.Done()
 			resAccess.Lock()
 			resMap[tag] = &URLTestResult{
@@ -68,6 +73,8 @@ func BatchURLTest(ctx context.Context, i *boxbox.Box, outboundTags []string, url
 			limiter <- struct{}{}
 			go func(t string) {
 				defer wg.Done()
+				defer func() { <-limiter }()
+
 				outbound, found := outbounds.Outbound(t)
 				if !found {
 					panic("no outbound with tag " + t + " found")
@@ -75,15 +82,15 @@ func BatchURLTest(ctx context.Context, i *boxbox.Box, outboundTags []string, url
 				client := &http.Client{
 					Transport: &http.Transport{
 						DialContext: func(_ context.Context, network string, addr string) (net.Conn, error) {
-							return outbound.DialContext(ctx, "tcp", metadata.ParseSocksaddr(addr))
+							return outbound.DialContext(ctxWithCancel, "tcp", metadata.ParseSocksaddr(addr))
 						},
 					},
 					Timeout: timeout,
 				}
 				// to properly measure muxed configs, let's do the test twice
-				duration, err := urlTest(ctx, client, url)
+				duration, err := urlTest(ctxWithCancel, client, url)
 				if err == nil && twice {
-					duration, err = urlTest(ctx, client, url)
+					duration, err = urlTest(ctxWithCancel, client, url)
 				}
 				resAccess.Lock()
 				u := &URLTestResult{
@@ -94,7 +101,6 @@ func BatchURLTest(ctx context.Context, i *boxbox.Box, outboundTags []string, url
 				resMap[t] = u
 				URLReporter.AddResult(u)
 				resAccess.Unlock()
-				<-limiter
 			}(tag)
 		}
 	}

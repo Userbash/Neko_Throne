@@ -6,8 +6,6 @@ package main
 import (
 	"ThroneCore/gen"
 	"ThroneCore/internal/boxmain"
-	"ThroneCore/test_utils"
-	"context"
 	"flag"
 	"fmt"
 	"github.com/xtls/xray-core/core"
@@ -127,7 +125,6 @@ func main() {
 		}()
 	*/
 
-	test_utils.TestCtx, test_utils.CancelTests = context.WithCancel(context.Background())
 	RunCore()
 	return
 }

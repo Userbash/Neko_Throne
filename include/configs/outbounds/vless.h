@@ -28,6 +28,16 @@ namespace Configs
             _add(new configItem("transport", dynamic_cast<JsonStore *>(transport.get()), jsonStore));
         }
 
+        bool IsXray() override {
+            return false;
+        }
+
+        bool MustXray() override {
+            if (transport && (transport->type == "xhttp" || transport->type == "http")) return true;
+            if (tls && tls->reality && tls->reality->enabled) return true;
+            return false;
+        }
+
         bool HasTLS() override {
             return true;
         }
@@ -59,6 +69,7 @@ namespace Configs
         QString ExportToLink() override;
         QJsonObject ExportToJson() override;
         BuildResult Build() override;
+        BuildResult BuildXray() override;
 
         QString DisplayType() override;
     };

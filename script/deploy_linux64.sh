@@ -41,10 +41,13 @@ elif [ -f "$BUILD/NekoCore" ]; then
     cp "$BUILD/NekoCore" "$DEST/"
 fi
 
-# Copy translations
+# Copy translations to both locations (for compatibility)
 if [ -d "$BUILD/lang" ]; then
     mkdir -p "$DEST/lang"
+    mkdir -p "$DEST/usr/translations"
     cp "$BUILD/lang"/*.qm "$DEST/lang/" 2>/dev/null || true
+    # Also copy to usr/translations for linuxdeploy compatibility
+    cp "$BUILD/lang"/*.qm "$DEST/usr/translations/" 2>/dev/null || true
 fi
 
 # Copy resources

@@ -138,10 +138,16 @@ namespace Stats
 
     void ConnectionLister::stopLoop()
     {
-        stop = true;
+        stop.store(true);
     }
 
-    void ConnectionLister::setSort(const ConnectionSort newSort)
+    void ConnectionLister::waitForStop() {
+        if (m_future.isRunning()) {
+            m_future.waitForFinished();
+        }
+    }
+
+    void ConnectionLister::setSort(ConnectionSort newSort)
     {
         QMutexLocker locker(&mu);
         if (newSort == ByTraffic)

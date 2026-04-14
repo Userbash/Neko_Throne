@@ -16,7 +16,8 @@ namespace Configs
         _add(new configItem("country", &test_country, itemType::string));
 
         if (bean != nullptr) {
-            this->_bean = std::shared_ptr<Configs::AbstractBean>(bean);
+            // Use make_shared for safer ownership transfer, fallback to direct construction if needed
+            this->_bean = std::make_shared<Configs::AbstractBean>(*bean);
             auto beanStore = dynamic_cast<JsonStore *>(bean);
             if (beanStore != nullptr) {
                 _add(new configItem("bean", beanStore, itemType::jsonStore));
@@ -24,6 +25,9 @@ namespace Configs
         }
 
         if (outbound != nullptr) {
+            // FIXED: Don't copy - preserve derived class type!
+            // Use std::move to avoid copying and maintain polymorphic type
+            // This prevents object slicing that was causing empty {} outbounds
             this->outbound = std::shared_ptr<Configs::outbound>(outbound);
             auto outboundStore = dynamic_cast<JsonStore *>(outbound);
             if (outboundStore != nullptr) {

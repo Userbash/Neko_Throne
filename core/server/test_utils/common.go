@@ -6,11 +6,43 @@ import (
 	"github.com/Mahdi-zarei/speedtest-go/speedtest"
 	"github.com/sagernet/sing/common/metadata"
 	"net"
+	"sync"
 	"time"
 )
 
-var TestCtx context.Context
-var CancelTests context.CancelFunc
+var (
+	testContextMutex   sync.Mutex
+	activeTestContexts map[string]context.CancelFunc = make(map[string]context.CancelFunc)
+)
+
+func CreateTestContext(testID string) context.Context {
+	testContextMutex.Lock()
+	defer testContextMutex.Unlock()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	activeTestContexts[testID] = cancel
+	return ctx
+}
+
+func CancelTest(testID string) {
+	testContextMutex.Lock()
+	defer testContextMutex.Unlock()
+
+	if cancel, exists := activeTestContexts[testID]; exists {
+		cancel()
+		delete(activeTestContexts, testID)
+	}
+}
+
+func CancelAllTests() {
+	testContextMutex.Lock()
+	defer testContextMutex.Unlock()
+
+	for _, cancel := range activeTestContexts {
+		cancel()
+	}
+	activeTestContexts = make(map[string]context.CancelFunc)
+}
 
 const FetchServersTimeout = 8 * time.Second
 const MaxConcurrentTests = 100

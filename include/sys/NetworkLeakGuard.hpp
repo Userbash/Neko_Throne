@@ -18,6 +18,8 @@
 #include <QObject>
 #include <QTimer>
 #include <QStringList>
+#include <QFuture>
+#include <QDateTime>
 #include <atomic>
 
 // ─── Leak detection result ───────────────────────────────────────────────────
@@ -44,6 +46,7 @@ public:
     // negligible while still catching routing-table drift in a reasonable time.
     void startMonitoring(int intervalMs = 30000);
     void stopMonitoring();
+    void waitForAudit();
 
     // ── IPv6 leak prevention ──
     // Disables IPv6 at the OS level when VPN is active to prevent leaks.
@@ -62,7 +65,7 @@ signals:
 
 private:
     explicit NetworkLeakGuard(QObject *parent = nullptr);
-    ~NetworkLeakGuard() override = default;
+    ~NetworkLeakGuard() override;
 
     Q_DISABLE_COPY_MOVE(NetworkLeakGuard)
 
@@ -72,5 +75,7 @@ private:
     LeakAuditResult auditIPv6();
 
     QTimer *m_timer = nullptr;
+    QFuture<void> m_auditFuture;
     std::atomic<bool> m_auditRunning{false};
+    QDateTime m_lastAuditStart;  // Timeout protection: reset flag if audit hangs
 };

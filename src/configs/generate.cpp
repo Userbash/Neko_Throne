@@ -688,6 +688,10 @@ namespace Configs {
             if (ent->outbound->IsEndpoint())
             {
                 ctx->endpoints.append(object);
+                // Also add to outbounds if it's the proxy outbound to satisfy router
+                if (tag == "proxy") {
+                    ctx->outbounds.append(object);
+                }
             } else
             {
                 ctx->outbounds.append(object);

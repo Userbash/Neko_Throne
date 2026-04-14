@@ -939,6 +939,7 @@ namespace Configs {
             }
 
             auto value = object[key];
+            // Always check get() result for null before dereferencing
             auto item = _map[key].get();
 
             if (item == nullptr) continue;

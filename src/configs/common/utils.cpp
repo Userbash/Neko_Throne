@@ -45,15 +45,34 @@ namespace Configs
     }
 
     // TODO add setting items and use them here
-    bool useXrayVless(const QString& link) {
+    bool useXrayCore(const QString& link) {
         auto url = QUrl(link);
         if (!url.isValid()) return false;
         auto query = QUrlQuery(url.query(QUrl::ComponentFormattingOption::FullyDecoded));
 
-        if (query.queryItemValue("type") == "xhttp"
-            || query.queryItemValue("security") == "reality"
-            || (query.queryItemValue("encryption") != "none" && query.queryItemValue("encryption") != "")
+        auto type = query.queryItemValue("type").toLower();
+        auto net = query.queryItemValue("net").toLower();
+        auto network = query.queryItemValue("network").toLower();
+        auto security = query.queryItemValue("security").toLower();
+        auto encryption = query.queryItemValue("encryption").toLower();
+
+        if (type == "xhttp" || net == "xhttp" || network == "xhttp"
+            || security == "reality"
+            || (encryption != "none" && !encryption.isEmpty())
             || query.queryItemValue("extra") != "") return true;
+
+        // VMess base64 parsing (some clients encode everything in base64)
+        if (link.startsWith("vmess://")) {
+            auto b64 = link.mid(8);
+            auto json = QJsonDocument::fromJson(QByteArray::fromBase64(b64.toUtf8())).object();
+            if (!json.isEmpty()) {
+                auto jnet = json["net"].toString().toLower();
+                auto jtls = json["tls"].toString().toLower();
+                auto jsc = json["sc"].toString().toLower();
+                if (jnet == "xhttp" || jtls == "reality" || jsc == "reality") return true;
+            }
+        }
+
         return false;
     }
 

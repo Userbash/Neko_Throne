@@ -339,8 +339,7 @@ func (s *server) Test(ctx context.Context, in *gen.TestReq) (*gen.TestResp, erro
 }
 
 func (s *server) StopTest(ctx context.Context, in *gen.EmptyReq) (*gen.EmptyResp, error) {
-	test_utils.CancelTests()
-	test_utils.TestCtx, test_utils.CancelTests = context.WithCancel(context.Background())
+	test_utils.CancelAllTests()
 
 	return &gen.EmptyResp{}, nil
 }
@@ -637,7 +636,10 @@ func (s *server) SpeedTest(ctx context.Context, in *gen.SpeedTestRequest) (*gen.
 		outboundTags = []string{outbound.Tag()}
 	}
 
-	results := test_utils.BatchSpeedTest(test_utils.TestCtx, testInstance, outboundTags, *in.TestDownload, *in.TestUpload, *in.SimpleDownload, *in.SimpleDownloadAddr, time.Duration(*in.TimeoutMs)*time.Millisecond, *in.OnlyCountry, *in.CountryConcurrency)
+	testID := fmt.Sprintf("speedtest-%d", time.Now().UnixNano())
+	testCtx := test_utils.CreateTestContext(testID)
+	defer test_utils.CancelTest(testID)
+	results := test_utils.BatchSpeedTest(testCtx, testInstance, outboundTags, *in.TestDownload, *in.TestUpload, *in.SimpleDownload, *in.SimpleDownloadAddr, time.Duration(*in.TimeoutMs)*time.Millisecond, *in.OnlyCountry, *in.CountryConcurrency)
 
 	res := make([]*gen.SpeedTestResult, 0)
 	for _, data := range results {
@@ -738,7 +740,10 @@ func (s *server) IPTest(ctx context.Context, in *gen.IPTestRequest) (*gen.IPTest
 		maxConcurrency = test_utils.MaxConcurrentTests
 	}
 	timeout := time.Duration(*in.TestTimeoutMs) * time.Millisecond
-	results := test_utils.BatchIPTest(test_utils.TestCtx, testInstance, outboundTags, int(maxConcurrency), timeout)
+	testID := fmt.Sprintf("iptest-%d", time.Now().UnixNano())
+	testCtx := test_utils.CreateTestContext(testID)
+	defer test_utils.CancelTest(testID)
+	results := test_utils.BatchIPTest(testCtx, testInstance, outboundTags, int(maxConcurrency), timeout)
 
 	res := make([]*gen.IPTestRes, 0, len(results))
 	for idx, data := range results {

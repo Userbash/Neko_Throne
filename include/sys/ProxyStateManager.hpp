@@ -9,6 +9,7 @@
 #pragma once
 
 #include <QObject>
+#include <QFuture>
 #include <atomic>
 
 // ─── Proxy operating modes ───────────────────────────────────────────────────
@@ -45,6 +46,7 @@ public:
     // ── Request a mode transition (non-blocking) ─────────────────
     // Returns false only if a transition is already in progress.
     bool setMode(ProxyMode target);
+    void waitForTransition();
 
     // ── Kill switch: instant Block with OS-level enforcement ─────
     // Called on connection drop or user panic button.
@@ -87,4 +89,5 @@ private:
     std::atomic<ProxyMode> m_mode{ProxyMode::Direct};
     std::atomic<bool> m_transitioning{false};
     std::atomic<bool> m_killSwitch{false};
+    QFuture<void> m_transitionFuture;
 };

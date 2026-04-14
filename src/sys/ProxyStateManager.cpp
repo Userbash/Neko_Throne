@@ -1,3 +1,4 @@
+#include <mutex>
 // SPDX-License-Identifier: GPL-2.0-or-later
 // ═══════════════════════════════════════════════════════════════════════════════
 // src/sys/ProxyStateManager.cpp — Thread-safe proxy mode hot-swap engine
@@ -36,7 +37,7 @@ bool ProxyStateManager::setMode(ProxyMode target) {
 
     auto previousMode = m_mode.load(std::memory_order_acquire);
 
-    (void) QtConcurrent::run([this, target, previousMode] {
+    m_transitionFuture = QtConcurrent::run([this, target, previousMode] {
         bool success = false;
 
         switch (target) {
@@ -64,18 +65,25 @@ bool ProxyStateManager::setMode(ProxyMode target) {
             QMetaObject::invokeMethod(this, [this, target, routeOK, dnsOK] {
                 emit modeChanged(target);
                 emit modeChangeVerified(target, routeOK, dnsOK);
-            });
+            }, Qt::QueuedConnection);
         } else {
             m_mode.store(previousMode, std::memory_order_release);
             QMetaObject::invokeMethod(this, [this, target] {
                 emit modeChangeFailed(target, QStringLiteral("Transition logic failed"));
-            });
+            }, Qt::QueuedConnection);
         }
 
+        // Ensure mode state is fully synchronized before allowing next transition
+        std::atomic_thread_fence(std::memory_order_release);
         m_transitioning.store(false, std::memory_order_release);
     });
 
     return true;
+}
+
+void ProxyStateManager::waitForTransition() {
+    if (m_transitionFuture.isRunning())
+        m_transitionFuture.waitForFinished();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

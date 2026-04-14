@@ -2,6 +2,8 @@
 #include "include/configs/sub/clash.hpp"
 
 #include <QUrlQuery>
+#include <QJsonArray>
+#include <QJsonObject>
 #include <include/global/Utils.hpp>
 
 #include "include/configs/common/utils.h"
@@ -107,6 +109,71 @@ namespace Configs {
         if (tls->enabled) object["tls"] = tls->Build().object;
         if (!transport->type.isEmpty()) object["transport"] = transport->Build().object;
         if (auto obj = multiplex->Build().object; !obj.isEmpty()) object["multiplex"] = obj;
+        return {object, ""};
+    }
+
+    BuildResult vless::BuildXray()
+    {
+        QJsonObject object;
+        object["protocol"] = "vless";
+        QJsonObject userObj;
+        userObj["id"] = uuid;
+        userObj["encryption"] = "none";
+        if (!flow.isEmpty()) userObj["flow"] = flow;
+        QJsonObject vnextEntry;
+        vnextEntry["address"] = server;
+        vnextEntry["port"] = server_port;
+        vnextEntry["users"] = QJsonArray{userObj};
+        object["settings"] = QJsonObject{{"vnext", QJsonArray{vnextEntry}}};
+
+        QJsonObject streamSettings;
+        QString network = transport->type;
+        if (network == "http") network = "h2";
+        if (network.isEmpty()) network = "tcp";
+        streamSettings["network"] = network;
+
+        if (tls->enabled) {
+            if (tls->reality->enabled) {
+                streamSettings["security"] = "reality";
+                QJsonObject realitySettings;
+                realitySettings["serverName"] = tls->server_name;
+                realitySettings["publicKey"] = tls->reality->public_key;
+                realitySettings["shortId"] = tls->reality->short_id;
+                realitySettings["fingerprint"] = tls->utls->fingerPrint;
+                streamSettings["realitySettings"] = realitySettings;
+            } else {
+                streamSettings["security"] = "tls";
+                QJsonObject tlsSettings;
+                tlsSettings["serverName"] = tls->server_name;
+                tlsSettings["allowInsecure"] = tls->insecure;
+                if (!tls->alpn.isEmpty()) tlsSettings["alpn"] = QJsonArray::fromStringList(tls->alpn);
+                tlsSettings["fingerprint"] = tls->utls->fingerPrint;
+                streamSettings["tlsSettings"] = tlsSettings;
+            }
+        }
+
+        if (network == "ws") {
+            QJsonObject wsSettings;
+            wsSettings["path"] = transport->path;
+            if (!transport->host.isEmpty()) wsSettings["headers"] = QJsonObject{{"Host", transport->host}};
+            streamSettings["wsSettings"] = wsSettings;
+        } else if (network == "h2") {
+            QJsonObject httpSettings;
+            httpSettings["path"] = transport->path;
+            if (!transport->host.isEmpty()) httpSettings["host"] = QJsonArray{transport->host};
+            streamSettings["httpSettings"] = httpSettings;
+        } else if (network == "grpc") {
+            QJsonObject grpcSettings;
+            grpcSettings["serviceName"] = transport->service_name;
+            streamSettings["grpcSettings"] = grpcSettings;
+        } else if (network == "xhttp") {
+            QJsonObject xhttpSettings;
+            xhttpSettings["path"] = transport->path;
+            if (!transport->host.isEmpty()) xhttpSettings["host"] = transport->host;
+            streamSettings["xhttpSettings"] = xhttpSettings;
+        }
+
+        object["streamSettings"] = streamSettings;
         return {object, ""};
     }
 

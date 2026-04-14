@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3)",
+      "Bash(ls -la /var/home/sanya/Neko_Throne/cmake-build-*)",
+      "Bash(ls -lah /var/home/sanya/Neko_Throne/build*)",
+      "Bash(ls -d /var/home/sanya/Neko_Throne/*)",
+      "Bash(find /var/home/sanya/Neko_Throne -name \"CMakeLists.txt\" -exec grep -l \"NekoCore\\\\|ExternalProject\\\\|add_subdirectory\" {} \\\\;)"
+    ]
+  }
+}

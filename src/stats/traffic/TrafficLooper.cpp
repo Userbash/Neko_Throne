@@ -27,13 +27,15 @@ namespace Stats {
         }
 
         auto resp = API::defaultClient->QueryStats();
-        proxy->uplink_rate = 0;
-        proxy->downlink_rate = 0;
+        if (proxy) {
+            proxy->uplink_rate = 0;
+            proxy->downlink_rate = 0;
+        }
 
         int proxyUp = 0, proxyDown = 0;
 
         for (const auto &item: this->items) {
-            if (!resp.ups.contains(item->tag)) continue;
+            if (!item || !resp.ups.contains(item->tag)) continue;
             auto now = elapsedTimer.elapsed();
             auto interval = now - item->last_update;
             item->last_update = now;
@@ -52,19 +54,23 @@ namespace Stats {
             if (item->ignoreForRate) continue;
             if (item->tag == "direct")
             {
-                direct->uplink_rate = item->uplink_rate;
-                direct->downlink_rate = item->downlink_rate;
+                if (direct) {
+                    direct->uplink_rate = item->uplink_rate;
+                    direct->downlink_rate = item->downlink_rate;
+                }
             } else
             {
-                proxy->uplink_rate += item->uplink_rate;
-                proxy->downlink_rate += item->downlink_rate;
+                if (proxy) {
+                    proxy->uplink_rate += item->uplink_rate;
+                    proxy->downlink_rate += item->downlink_rate;
+                }
             }
         }
         if (isChain)
         {
             for (const auto &item: this->items)
             {
-                if (item->isChainTail)
+                if (item && item->isChainTail)
                 {
                     item->uplink += proxyUp;
                     item->downlink += proxyDown;
@@ -75,7 +81,7 @@ namespace Stats {
 
     void TrafficLooper::Loop() {
         elapsedTimer.start();
-        while (true) {
+        while (!m_stop.load()) {
             QThread::msleep(1000); // refresh every one second
 
             if (Configs::dataStore->disable_traffic_stats) {
@@ -114,22 +120,42 @@ namespace Stats {
 
             UpdateAll();
 
+            // Capture data for UI while holding the lock
+            auto itemsCopy = this->items;
+            auto proxyCopy = this->proxy;
+            auto directCopy = this->direct;
+
             loop_mutex.unlock();
 
-            // post to UI
-            runOnUiThread([=,this] {
+            // post to UI using thread-safe copies
+            runOnUiThread([=, this] {
+                // Check if application is already quitting or main window is gone
+                if (QCoreApplication::closingDown() || !QApplication::instance()) return;
                 auto m = GetMainWindow();
                 if (m == nullptr) return;
 
-                if (proxy != nullptr) {
-                    m->refresh_status(QObject::tr("Proxy: %1\nDirect: %2").arg(proxy->DisplaySpeed(), direct->DisplaySpeed()));
-                    m->update_traffic_graph(proxy->downlink_rate, proxy->uplink_rate, direct->downlink_rate, direct->uplink_rate);
+                if (proxyCopy != nullptr && directCopy != nullptr) {
+                    m->refresh_status(QObject::tr("Proxy: %1\nDirect: %2").arg(proxyCopy->DisplaySpeed(), directCopy->DisplaySpeed()));
+                    m->update_traffic_graph(proxyCopy->downlink_rate, proxyCopy->uplink_rate, directCopy->downlink_rate, directCopy->uplink_rate);
                 }
-                for (const auto &item: items) {
-                    if (item->id < 0) continue;
+                for (const auto &item: itemsCopy) {
+                    if (!item || item->id < 0) continue;
                     m->refresh_proxy_list(item->id);
                 }
             });
+        }
+        looping = false;
+    }
+
+    void TrafficLooper::stop() {
+        m_stop.store(true);
+        // We don't wait for finished here since it's a separate thread usually,
+        // but it will exit at next iteration.
+    }
+
+    void TrafficLooper::waitForStop() {
+        if (m_future.isRunning()) {
+            m_future.waitForFinished();
         }
     }
 

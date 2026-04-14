@@ -4,6 +4,8 @@
 #include "libcore.pb.h"
 #endif
 #include <QString>
+#include <mutex>
+#include <memory>
 
 namespace QtGrpc {
     class Http2GrpcChannelPrivate;
@@ -14,11 +16,15 @@ namespace API {
     public:
         explicit Client(std::function<void(const QString &)> onError, const QString &target);
 
+        ~Client();
+
         // QString returns is error string
 
         QString Start(bool *rpcOK, const libcore::LoadConfigReq &request);
 
         QString Stop(bool *rpcOK);
+
+        void StopPendingOperations();
 
         libcore::QueryStatsResp QueryStats();
 
@@ -50,7 +56,8 @@ namespace API {
 
     private:
         std::function<std::unique_ptr<QtGrpc::Http2GrpcChannelPrivate>()> make_grpc_channel;
-        std::unique_ptr<QtGrpc::Http2GrpcChannelPrivate> default_grpc_channel;
+        std::shared_ptr<QtGrpc::Http2GrpcChannelPrivate> default_grpc_channel;
+        mutable std::mutex channel_mutex;
         std::function<void(const QString &)> onError;
     };
 

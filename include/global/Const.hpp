@@ -1,4 +1,8 @@
 #pragma once
+
+#include <mutex>
+#include <chrono>
+
 #include <QString>
 #include <QStringList>
 

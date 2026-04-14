@@ -2,6 +2,7 @@
 #include <QMutex>
 #include <QString>
 #include <atomic>
+#include <QFuture>
 
 namespace Stats
 {
@@ -39,12 +40,14 @@ namespace Stats
         ConnectionLister();
 
         std::atomic<bool> suspend = true;
+        QFuture<void> m_future;
 
         void Loop();
 
         void ForceUpdate();
 
         void stopLoop();
+        void waitForStop();
 
         void setSort(ConnectionSort newSort);
 

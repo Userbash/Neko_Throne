@@ -1,3 +1,4 @@
+#include <mutex>
 #include "include/global/Utils.hpp"
 
 #include "3rdparty/base64.h"
@@ -17,6 +18,7 @@
 #include <QRegularExpression>
 #include <QDateTime>
 #include <QLocale>
+#include <QtConcurrent>
 
 #ifdef Q_OS_WIN
 #include "include/sys/windows/guihelper.h"
@@ -285,70 +287,49 @@ void runOnUiThread(const std::function<void()> &callback, bool wait) {
     auto *app = qApp;
     if (!app) return;
     auto thread = app->thread();
-    
-    auto *timer = new QTimer();
+
+    auto *timer = new QTimer(nullptr);
     timer->moveToThread(thread);
     timer->setSingleShot(true);
 
-    QEventLoop loop;
-    auto connection = std::make_shared<QMetaObject::Connection>();
-    *connection = QObject::connect(timer, &QTimer::timeout, app, [=, &loop]() {
-        // main thread execution
-        callback();
-        timer->deleteLater();
-
-        if (wait)
-        {
-            QMetaObject::invokeMethod(&loop, "quit", Qt::QueuedConnection);
-        }
-    });
-    QMetaObject::invokeMethod(timer, "start", Qt::QueuedConnection, Q_ARG(int, 0));
-
     if (wait && QThread::currentThread() != thread) {
-        loop.exec();
+        auto semaphore = std::make_shared<QSemaphore>(0);
+        auto connection = std::make_shared<QMetaObject::Connection>();
+        *connection = QObject::connect(timer, &QTimer::timeout, app, [=]() {
+            // main thread execution
+            callback();
+            timer->deleteLater();
+            semaphore->release();
+        });
+        QMetaObject::invokeMethod(timer, "start", Qt::QueuedConnection, Q_ARG(int, 0));
+        semaphore->acquire();
+    } else {
+        auto connection = std::make_shared<QMetaObject::Connection>();
+        *connection = QObject::connect(timer, &QTimer::timeout, app, [=]() {
+            // main thread execution
+            callback();
+            timer->deleteLater();
+        });
+        QMetaObject::invokeMethod(timer, "start", Qt::QueuedConnection, Q_ARG(int, 0));
     }
 }
 
 void runOnNewThread(const std::function<void()> &callback, bool wait) {
-    auto *timer = new QTimer();
-    auto thread = new QThread();
-    timer->moveToThread(thread);
-    timer->setSingleShot(true);
-
-    thread->start();
-    QObject::connect(thread, &QThread::finished, thread, &QObject::deleteLater);
-
-    QEventLoop loop;
-    QObject::connect(timer, &QTimer::timeout, [=, &loop]() {
-        callback();
-        timer->deleteLater();
-        QMetaObject::invokeMethod(thread, "quit", Qt::QueuedConnection);
-
-        if (wait)
-        {
-            QMetaObject::invokeMethod(&loop, "quit", Qt::QueuedConnection);
-        }
-    });
-    QMetaObject::invokeMethod(timer, "start", Qt::QueuedConnection, Q_ARG(int, 0));
-
-    if (wait && QThread::currentThread() != thread) {
-        loop.exec();
+    auto future = QtConcurrent::run(callback);
+    if (wait) {
+        future.waitForFinished();
     }
 }
 
-void runOnThread(const std::function<void()> &callback, QObject *parent, bool wait) {
-    auto *timer = new QTimer();
-    auto thread = dynamic_cast<QThread *>(parent);
-    if (thread == nullptr) {
-        timer->moveToThread(parent->thread());
-        thread = parent->thread();
-    } else {
-        timer->moveToThread(thread);
-    }
+void runOnThread(const std::function<void()> &callback, QObject *target, bool wait) {
+    // Create timer with no parent to avoid thread affinity issues
+    auto *timer = new QTimer(nullptr);
+    QThread* thread = target->thread();
+    timer->moveToThread(thread);
     timer->setSingleShot(true);
 
     QEventLoop loop;
-    QObject::connect(timer, &QTimer::timeout, parent, [=, &loop]() {
+    QObject::connect(timer, &QTimer::timeout, target, [=, &loop]() {
         callback();
         timer->deleteLater();
 
@@ -365,12 +346,13 @@ void runOnThread(const std::function<void()> &callback, QObject *parent, bool wa
 }
 
 void setTimeout(const std::function<void()> &callback, QObject *obj, int timeout) {
-    auto t = new QTimer;
+    auto t = new QTimer(nullptr);
+    t->moveToThread(obj->thread());
     QObject::connect(t, &QTimer::timeout, obj, [=] {
         callback();
         t->deleteLater();
     });
     t->setSingleShot(true);
     t->setInterval(timeout);
-    t->start();
+    QMetaObject::invokeMethod(t, "start", Qt::QueuedConnection);
 }

@@ -36,6 +36,15 @@ namespace Configs
             _add(new configItem("multiplex", dynamic_cast<JsonStore *>(multiplex.get()), jsonStore));
         }
 
+        bool IsXray() override {
+            return false;
+        }
+
+        bool MustXray() override {
+            if (transport && (transport->type == "xhttp" || transport->type == "http")) return true;
+            return false;
+        }
+
         bool HasTLS() override {
             return true;
         }
@@ -67,6 +76,7 @@ namespace Configs
         QString ExportToLink() override;
         QJsonObject ExportToJson() override;
         BuildResult Build() override;
+        BuildResult BuildXray() override;
 
         QString DisplayType() override;
     };

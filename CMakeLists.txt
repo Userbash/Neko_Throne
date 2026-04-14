@@ -327,6 +327,8 @@ set(PROJECT_SOURCES
         src/ui/profile/edit_advanced.cpp
         include/ui/profile/edit_advanced.ui
         include/configs/common/xrayStreamSetting.h
+        include/configs/outbounds/xrayVmess.h
+        src/configs/outbounds/xrayVmess.cpp
         include/configs/outbounds/xrayVless.h
         include/configs/common/xrayMultiplex.h
         src/configs/common/xrayMultiplex.cpp
