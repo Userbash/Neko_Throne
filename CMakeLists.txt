@@ -427,6 +427,11 @@ add_executable(ArtifactTest
     src/global/Utils.cpp
     3rdparty/base64.cpp
 )
+
+if(WIN32)
+    target_sources(ArtifactTest PRIVATE src/sys/windows/guihelper.cpp)
+    target_include_directories(ArtifactTest PRIVATE src/sys/windows)
+endif()
 set_property(TARGET ArtifactTest PROPERTY AUTOMOC ON)
 set_property(TARGET ArtifactTest PROPERTY AUTOUIC ON)
 set_property(TARGET ArtifactTest PROPERTY AUTORCC ON)
