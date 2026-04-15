@@ -94,7 +94,9 @@ func main() {
 	fmt.Println()
 	runtimeDebug.SetMemoryLimit(2 * 1024 * 1024 * 1024) // 2GB
 
-	test_utils.TestCtx, test_utils.CancelTests = context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	RunCore()
 	return
 }

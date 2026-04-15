@@ -68,6 +68,7 @@ Thumbs.db
 # --------
 *.dll
 *.exe
+*.AppImage
 
 # Custom
 /Throne
@@ -78,10 +79,15 @@ CMakeLists.txt.user*
 .vscode
 .idea
 
-# Deploy
+# Deploy and temporary tools
 /deployment
-/neko*.sh
-/qtsdk
+/tools-bin
+/tools-storage
+/linuxdeploy-*
+*.log
+*.debug
+/test_chrono*
+/crash.log
 
 .vs
 out
