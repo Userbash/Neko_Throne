@@ -31,6 +31,7 @@ namespace Configs {
     public:
         QString type;
 
+
         int id = -1;
         int gid = 0;
         int latency = 0;
@@ -116,5 +117,7 @@ namespace Configs {
         [[nodiscard]] Configs::extracore *ExtraCore() const {
             return dynamic_cast<Configs::extracore *>(outbound.get());
         };
+
+        void RunMigrations(QJsonObject &root) override;
     };
 } // namespace Configs

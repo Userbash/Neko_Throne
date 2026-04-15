@@ -48,10 +48,15 @@ namespace Configs_sys {
 
         int start_profile_when_core_is_up = -1;
 
+    signals:
+        void coreError(const QString &message);
+
     private:
         bool show_stderr = false;
         bool failed_to_start = false;
         bool restarting = false;
+        bool usingPkexec = false;
+        bool isElevating = false;
 
         CoreLifecycleState m_state = CoreLifecycleState::Stopped;
 

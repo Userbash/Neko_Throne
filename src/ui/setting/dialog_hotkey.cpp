@@ -7,6 +7,7 @@
 
 DialogHotkey::DialogHotkey(QWidget *parent, const QList<QAction*>& actions) : QDialog(parent), ui(new Ui::DialogHotkey) {
     ui->setupUi(this);
+    setAttribute(Qt::WA_DeleteOnClose);
     ui->show_mainwindow->setKeySequence(Configs::dataStore->hotkey_mainwindow);
     ui->show_groups->setKeySequence(Configs::dataStore->hotkey_group);
     ui->show_routes->setKeySequence(Configs::dataStore->hotkey_route);

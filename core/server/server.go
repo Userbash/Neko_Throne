@@ -34,6 +34,7 @@ import (
 var boxInstance *boxbox.Box
 var extraProcess *process.Process
 var needUnsetDNS bool
+var ipv6Blocked bool
 var instanceCancel context.CancelFunc
 var debug bool
 
@@ -53,11 +54,18 @@ func (s *server) Start(ctx context.Context, in *gen.LoadConfigReq) (out *gen.Err
 	var err error
 	out = &gen.ErrorResp{}
 
+	if runtime.GOOS == "linux" {
+		linuxNetworkCleanup()
+	}
+
 	defer func() {
 		if err != nil {
 			// Preserve error response and ensure boxInstance is cleaned up
 			out.Error = To(err.Error())
 			boxInstance = nil
+			if runtime.GOOS == "linux" && ipv6Blocked {
+				restoreIPv6()
+			}
 		}
 	}()
 
@@ -204,6 +212,10 @@ func (s *server) Start(ctx context.Context, in *gen.LoadConfigReq) (out *gen.Err
 		needUnsetDNS = true
 	}
 
+	if in.GetBlock_Ipv6() && runtime.GOOS == "linux" {
+		blockIPv6Leaks()
+	}
+
 	return
 }
 
@@ -253,6 +265,10 @@ func (s *server) Stop(ctx context.Context, in *gen.EmptyReq) (out *gen.ErrorResp
 	if xrayInstance != nil {
 		xrayInstance.Close()
 		xrayInstance = nil
+	}
+
+	if runtime.GOOS == "linux" && ipv6Blocked {
+		restoreIPv6()
 	}
 
 	return
@@ -506,65 +522,50 @@ func linuxNetworkCleanup() {
 		return
 	}
 
-	// 1. nftables: enumerate live tables and delete any sing-box / throne
-	// related ones. Using `nft -a list tables` lets us discover tables we might
-	// not know the name of (e.g. auto-redirect has used "sing-box" in the past
-	// but could change); we match by substring to stay forward-compatible.
+	// 1. nftables cleanup
 	if nftErr == nil {
 		out, err := exec.Command(nft, "list", "tables").Output()
 		if err == nil {
 			scanner := bufio.NewScanner(strings.NewReader(string(out)))
 			for scanner.Scan() {
-				// Each line looks like: `table inet sing-box`
 				fields := strings.Fields(scanner.Text())
 				if len(fields) < 3 || fields[0] != "table" {
 					continue
 				}
 				family, name := fields[1], fields[2]
 				if strings.Contains(name, "sing-box") || strings.Contains(name, "throne") {
-					_ = exec.Command(nft, "delete", "table", family, name).Run()
+					err := exec.Command(nft, "delete", "table", family, name).Run()
+					if err != nil && os.IsPermission(err) {
+						log.Printf("[Core] Permission denied deleting nftables table %s", name)
+					}
 				}
 			}
-		}
-		// Legacy: also try deleting the common default table names in every
-		// family, in case `nft list tables` was ratelimited or failed.
-		for _, family := range []string{"inet", "ip", "ip6", "bridge", "arp"} {
-			_ = exec.Command(nft, "delete", "table", family, "sing-box").Run()
 		}
 	}
 
 	if ipErr == nil {
-		// 2. Interfaces: delete any lingering TUN devices we may have created.
-		// Try the configured name plus common alternates.
-		// Enhanced: Also attempt to detect and delete TUN interfaces dynamically
+		// 2. Interfaces cleanup
 		knownInterfaces := []string{"throne-tun", "sing-tun", "singtun0", "tun0", "tun1", "tun2", "tun3", "utun0", "utun1"}
-
-		// Try to add dynamically discovered TUN interfaces (tun100+, tun_auto, etc)
-		// This helps with systems that auto-allocate TUN device numbers
 		detectProc := exec.Command("ip", "link", "show", "type", "tun")
 		if output, err := detectProc.CombinedOutput(); err == nil {
-			// Parse output to find interface names (format: "5: tun100: <POINTOPOINT,NOARP,UP,LOWER_UP>")
 			for _, line := range strings.Split(string(output), "\n") {
 				parts := strings.Fields(line)
 				if len(parts) >= 2 && (strings.HasPrefix(parts[1], "tun") || strings.HasPrefix(parts[1], "utun")) {
-					// Remove trailing colon from interface name
 					ifaceName := strings.TrimSuffix(parts[1], ":")
 					knownInterfaces = append(knownInterfaces, ifaceName)
 				}
 			}
 		}
 
-		// Delete all identified TUN interfaces
 		for _, iface := range knownInterfaces {
-			// Try to bring interface down first (may fail if already down)
 			_ = exec.Command(ipBin, "link", "set", iface, "down").Run()
-			// Then delete it (will fail silently if doesn't exist)
-			_ = exec.Command(ipBin, "link", "delete", iface).Run()
+			err := exec.Command(ipBin, "link", "delete", iface).Run()
+			if err != nil && os.IsPermission(err) {
+				log.Printf("[Core] Permission denied deleting interface %s", iface)
+			}
 		}
 
-		// 3. Routing Rules: sing-box's auto-route adds ip rules at priority 9000
-		// referencing fwmark 1 / table 100. Remove them. Loop because multiple
-		// rules may exist; cap iterations so we can never hang.
+		// 3. Routing Rules
 		const maxRuleIters = 32
 		for i := 0; i < maxRuleIters; i++ {
 			removed := false
@@ -574,23 +575,26 @@ func linuxNetworkCleanup() {
 				{"-6", "rule", "del", "priority", "9000"},
 				{"-6", "rule", "del", "fwmark", "1", "lookup", "100"},
 			} {
-				if exec.Command(ipBin, args...).Run() == nil {
+				err := exec.Command(ipBin, args...).Run()
+				if err == nil {
 					removed = true
+				} else if os.IsPermission(err) {
+					log.Println("[Core] Permission denied removing routing rules")
+					goto skipRules
 				}
 			}
 			if !removed {
 				break
 			}
 		}
+	skipRules:
 
-		// 4. Routing tables: flush our custom table so stale routes can't
-		// survive into the new session.
+		// 4. Routing tables
 		_ = exec.Command(ipBin, "-4", "route", "flush", "table", "100").Run()
 		_ = exec.Command(ipBin, "-6", "route", "flush", "table", "100").Run()
 	}
 
 	log.Println("[Core] Network cleanup finished.")
-	// Short pause so netlink cache settles before sing-box touches it again.
 	time.Sleep(250 * time.Millisecond)
 }
 
@@ -790,4 +794,56 @@ func (s *server) GenWgKeyPair(ctx context.Context, _ *gen.EmptyReq) (out *gen.Ge
 	res.PrivateKey = To(privateKey.String())
 	res.PublicKey = To(privateKey.PublicKey().String())
 	return &res, nil
+}
+
+func blockIPv6Leaks() {
+	if runtime.GOOS != "linux" {
+		return
+	}
+	log.Println("[LeakGuard] Blocking IPv6 leaks...")
+	
+	files := []string{
+		"/proc/sys/net/ipv6/conf/all/disable_ipv6",
+		"/proc/sys/net/ipv6/conf/default/disable_ipv6",
+	}
+
+	for _, path := range files {
+		err := os.WriteFile(path, []byte("1"), 0644)
+		if err != nil {
+			if os.IsPermission(err) {
+				log.Printf("[LeakGuard] Skipped IPv6 blocking for %s: permission denied. Your IPv6 traffic might leak!", path)
+			} else {
+				log.Printf("[LeakGuard] IPv6 block sysctl not found or other error for %s: %v", path, err)
+			}
+		} else {
+			ipv6Blocked = true
+		}
+	}
+	if ipv6Blocked {
+		log.Println("[LeakGuard] Successfully blocked IPv6 to prevent leaks.")
+	}
+}
+
+func restoreIPv6() {
+	if runtime.GOOS != "linux" {
+		return
+	}
+	log.Println("[LeakGuard] Restoring IPv6...")
+	
+	files := []string{
+		"/proc/sys/net/ipv6/conf/all/disable_ipv6",
+		"/proc/sys/net/ipv6/conf/default/disable_ipv6",
+	}
+
+	for _, path := range files {
+		err := os.WriteFile(path, []byte("0"), 0644)
+		if err != nil {
+			if os.IsPermission(err) {
+				log.Printf("[LeakGuard] Permission denied restoring IPv6 for %s", path)
+			} else {
+				log.Printf("[LeakGuard] Error restoring IPv6 for %s: %v", path, err)
+			}
+		}
+	}
+	ipv6Blocked = false
 }

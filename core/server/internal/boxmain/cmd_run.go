@@ -55,12 +55,39 @@ func parseConfig(ctx context.Context, configContent []byte) (*option.Options, er
 	return &options, nil
 }
 
+func validateOutbounds(options *option.Options) {
+	if options.Route == nil {
+		return
+	}
+
+	outboundTags := make(map[string]bool)
+	for _, outbound := range options.Outbounds {
+		outboundTags[outbound.Tag] = true
+	}
+
+	// Default fallback: direct
+	for i := range options.Route.Rules {
+		rule := &options.Route.Rules[i]
+		if rule.Outbound != "" && !outboundTags[rule.Outbound] {
+			log.Warn("Outbound tag '%s' missing, falling back to 'direct'", rule.Outbound)
+			rule.Outbound = "direct"
+		}
+	}
+}
+
 func Create(configContent []byte, disableDNS bool) (*boxbox.Box, context.CancelFunc, error) {
-	preRun(nil, nil)
+	// Set longer timeout for core startup
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+
 	options, err := parseConfig(globalCtx, configContent)
 	if err != nil {
+		cancel()
 		return nil, nil, err
 	}
+
+	validateOutbounds(options)
+    // ...
+
 	if disableDNS {
 		if options.DNS == nil {
 			options.DNS = &option.DNSOptions{}

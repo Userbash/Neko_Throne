@@ -4,6 +4,8 @@
 #include <QApplication>
 #include <QDir>
 #include <QFile>
+#include <QSaveFile>
+#include <QCryptographicHash>
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -26,6 +28,14 @@
 #endif
 
 namespace Configs_ConfigItem {
+
+    JsonStore::JsonStore() {
+        _add(new configItem("schema_version", &schema_version, itemType::integer));
+    }
+
+    JsonStore::JsonStore(QString fileName) : JsonStore() {
+        fn = std::move(fileName);
+    }
 
     void JsonStore::_add(configItem *item) {
         _map.insert(item->name, std::shared_ptr<configItem>(item));
@@ -132,6 +142,8 @@ namespace Configs_ConfigItem {
     }
 
     void JsonStore::FromJson(QJsonObject object) {
+        RunMigrations(object);
+
         for (const auto &key: object.keys()) {
             if (_map.count(key) == 0) {
                 continue;
@@ -161,7 +173,7 @@ namespace Configs_ConfigItem {
                     if (value.type() != QJsonValue::Double) {
                         continue;
                     }
-                    *(long long *) item->ptr = value.toDouble();
+                    *(long long *) item->ptr = (long long) value.toDouble();
                     break;
                 case itemType::boolean:
                     if (value.type() != QJsonValue::Bool) {
@@ -216,17 +228,22 @@ namespace Configs_ConfigItem {
         auto changed = last_save_content_hash != QCryptographicHash::hash(save_content, QCryptographicHash::Md5);
         last_save_content_hash = QCryptographicHash::hash(save_content, QCryptographicHash::Md5);
 
-        QFile file;
-        file.setFileName(fn);
-        if (!file.open(QIODevice::ReadWrite | QIODevice::Truncate)) {
-            qWarning() << "Failed to open config file for writing:" << fn << "-" << file.errorString();
+        if (!changed && QFile::exists(fn)) return false;
+
+        QSaveFile file(fn);
+        if (!file.open(QIODevice::WriteOnly)) {
+            qWarning() << "Failed to open config file for atomic writing:" << fn << "-" << file.errorString();
             return false;
         }
-        qint64 written = file.write(save_content);
-        file.close();
 
+        qint64 written = file.write(save_content);
         if (written != save_content.size()) {
             qWarning() << "Failed to write complete config data to" << fn;
+            return false;
+        }
+
+        if (!file.commit()) {
+            qWarning() << "Failed to commit atomic write to" << fn << "-" << file.errorString();
             return false;
         }
 
@@ -267,6 +284,7 @@ namespace Configs {
     // datastore
 
     DataStore::DataStore() : JsonStore() {
+        schema_version = CURRENT_SCHEMA_VERSION;
         _add(new configItem("user_agent2", &user_agent, itemType::string));
         _add(new configItem("test_url", &test_latency_url, itemType::string));
         _add(new configItem("disable_tray", &disable_tray, itemType::boolean));
@@ -307,7 +325,18 @@ namespace Configs {
         _add(new configItem("vpn_mtu", &vpn_mtu, itemType::integer));
         _add(new configItem("vpn_ipv6", &vpn_ipv6, itemType::boolean));
         _add(new configItem("vpn_strict_route", &vpn_strict_route, itemType::boolean));
+        _add(new configItem("tun_setcap_broken", &tun_setcap_broken, itemType::boolean));
+        _add(new configItem("pkexec_cancel_count", &pkexec_cancel_count, itemType::integer));
+        _add(new configItem("last_pkexec_cancel_time", &last_pkexec_cancel_time, itemType::integer64));
+        _add(new configItem("last_core_version", &last_core_version, itemType::integer));
         _add(new configItem("sub_clear", &sub_clear, itemType::boolean));
+        
+        // Reset privilege cache on major update
+        if (last_core_version < CORE_VERSION) {
+            tun_setcap_broken = false;
+            pkexec_cancel_count = 0;
+            last_core_version = CORE_VERSION;
+        }
         _add(new configItem("net_insecure", &net_insecure, itemType::boolean));
         _add(new configItem("sub_auto_update", &sub_auto_update, itemType::integer));
         _add(new configItem("sub_send_hwid", &sub_send_hwid, itemType::boolean));

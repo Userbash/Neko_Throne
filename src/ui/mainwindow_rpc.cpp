@@ -543,6 +543,7 @@ void MainWindow::profile_start(int _id) {
         req.need_xray = !result->xrayConfig.isEmpty();
         if (Configs::dataStore->spmode_vpn) {
             req.tun_ipv4_cidr = "172.19.0.1/24";
+            req.block_ipv6 = true;
         }
         if (ent->type == "extracore")
         {

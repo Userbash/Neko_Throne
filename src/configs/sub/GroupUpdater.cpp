@@ -424,6 +424,12 @@ namespace Subscription {
                 }
 
                 if (ent == nullptr) continue;
+                
+                QJsonObject obj = ent->ToJson();
+                ent->RunMigrations(obj);
+                ent->FromJson(obj);
+                ent->Save();
+                
                 updated_order += ent;
             }
         } catch (const fkyaml::exception &ex) {

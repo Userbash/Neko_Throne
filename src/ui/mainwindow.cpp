@@ -177,9 +177,16 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     if (Configs::dataStore->log_level == "debug") args.push_back("-debug");
 
     // Start core
+    ui->menu_start->setEnabled(false);
     runOnThread(
         [=,this] {
             core_process = new Configs_sys::CoreProcess(core_path, args);
+            connect(core_process, &Configs_sys::CoreProcess::coreError, this, [this](const QString &msg) {
+                QMetaObject::invokeMethod(ui->menu_start, [this] {
+                    ui->menu_start->setEnabled(true);
+                });
+                MW_show_log(msg);
+            });
             // Remember last started
             if (Configs::dataStore->remember_enable && Configs::dataStore->remember_id >= 0) {
                 core_process->start_profile_when_core_is_up = Configs::dataStore->remember_id;
@@ -946,6 +953,9 @@ void MainWindow::dialog_message_impl(const QString &sender, const QString &info)
             }
             profile_stop();
         } else if (info.startsWith("CoreStarted")) {
+            QMetaObject::invokeMethod(ui->menu_start, [this] {
+                ui->menu_start->setEnabled(true);
+            });
             Configs::IsCorePrivileged(true);
             // Deactivate kill switch if it was activated during crash
             if (ProxyStateManager::instance()->isKillSwitchActive()) {

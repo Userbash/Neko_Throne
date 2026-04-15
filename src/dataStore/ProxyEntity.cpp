@@ -2,8 +2,9 @@
 
 namespace Configs
 {
-    ProxyEntity::ProxyEntity(Configs::outbound *outbound, Configs::AbstractBean *bean, const QString &type_)
+    ProxyEntity::ProxyEntity(Configs::outbound *outbound, Configs::AbstractBean *bean, const QString &type_) : JsonStore()
     {
+        schema_version = CURRENT_SCHEMA_VERSION;
         if (type_ != nullptr) this->type = type_;
 
         _add(new configItem("type", &type, itemType::string));
@@ -68,5 +69,81 @@ namespace Configs
         } else {
             return {};
         }
+    }
+
+    void ProxyEntity::RunMigrations(QJsonObject &root) {
+        int version = root.contains("schema_version") ? root["schema_version"].toInt() : 1;
+        if (version >= CURRENT_SCHEMA_VERSION) return;
+
+        // V1 -> V2 Migration
+        if (root.contains("type")) {
+            QString type_str = root["type"].toString();
+            if (type_str == "vless" || type_str == "xrayvless") {
+                if (root.contains("outbound")) {
+                    QJsonObject outbound_obj = root["outbound"].toObject();
+                    bool needs_vision = false;
+                    bool changed = false;
+
+                    if (type_str == "vless") {
+                        // Sing-box VLESS
+                        if (outbound_obj.contains("tls")) {
+                            QJsonObject tls = outbound_obj["tls"].toObject();
+                            bool tlsEnabled = tls["enabled"].toBool();
+                            bool realityEnabled = false;
+                            if (tls.contains("reality")) {
+                                realityEnabled = tls["reality"].toObject()["enabled"].toBool();
+                            }
+                            if (tlsEnabled || realityEnabled) {
+                                needs_vision = true;
+                            }
+                        }
+                        // XHTTP -> http (v2) for Sing-box
+                        if (outbound_obj.contains("transport")) {
+                            QJsonObject transport = outbound_obj["transport"].toObject();
+                            if (transport["type"].toString() == "xhttp") {
+                                transport["type"] = "http";
+                                // Sing-box http transport uses "version" field
+                                transport["version"] = "2";
+                                outbound_obj["transport"] = transport;
+                                changed = true;
+                            }
+                        }
+                    } else {
+                        // Xray VLESS
+                        if (outbound_obj.contains("streamSetting")) {
+                            QJsonObject ss = outbound_obj["streamSetting"].toObject();
+                            QString security = ss["security"].toString();
+                            if (security == "tls" || security == "reality") {
+                                needs_vision = true;
+                            }
+                            // XHTTP migration for Xray
+                            if (ss["network"].toString() == "xhttp") {
+                                ss["network"] = "http";
+                                QJsonObject xhttpSettings = ss["xhttpSettings"].toObject();
+                                xhttpSettings["version"] = "2";
+                                ss["httpSettings"] = xhttpSettings;
+                                ss.remove("xhttpSettings");
+                                outbound_obj["streamSetting"] = ss;
+                                changed = true;
+                            }
+                        }
+                    }
+
+                    if (needs_vision) {
+                        if (!outbound_obj.contains("flow") || outbound_obj["flow"].toString().isEmpty()) {
+                            outbound_obj["flow"] = "xtls-rprx-vision";
+                            changed = true;
+                        }
+                    }
+
+                    if (changed) {
+                        root["outbound"] = outbound_obj;
+                    }
+                }
+            }
+        }
+
+        root["schema_version"] = CURRENT_SCHEMA_VERSION;
+        this->schema_version = CURRENT_SCHEMA_VERSION;
     }
 }

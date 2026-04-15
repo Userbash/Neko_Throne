@@ -437,3 +437,36 @@ set_property(TARGET ArtifactTest PROPERTY AUTOUIC ON)
 set_property(TARGET ArtifactTest PROPERTY AUTORCC ON)
 target_link_libraries(ArtifactTest PRIVATE Qt6::Test Qt6::Core Qt6::Concurrent Qt6::Widgets Qt6::Network)
 add_test(NAME FullArtifactCheck COMMAND ArtifactTest)
+
+add_executable(MigrationTest 
+    tests/MigrationTest.cpp
+    src/global/Configs.cpp
+    src/global/Utils.cpp
+    src/dataStore/Database.cpp
+    src/dataStore/ProxyEntity.cpp
+    src/dataStore/Group.cpp
+    src/dataStore/RouteEntity.cpp
+    src/dataStore/ProfileFilter.cpp
+    src/configs/common/Outbound.cpp
+    src/configs/common/transport.cpp
+    src/configs/common/TLS.cpp
+    src/configs/common/multiplex.cpp
+    src/configs/common/xrayStreamSetting.cpp
+    src/configs/common/xrayMultiplex.cpp
+    src/configs/outbounds/vless.cpp
+    src/configs/outbounds/xrayVless.cpp
+    src/configs/proxy/AbstractBean.cpp
+    3rdparty/base64.cpp
+)
+
+if(WIN32)
+    target_sources(MigrationTest PRIVATE src/sys/windows/guihelper.cpp)
+    target_include_directories(MigrationTest PRIVATE src/sys/windows)
+endif()
+set_property(TARGET MigrationTest PROPERTY AUTOMOC ON)
+set_property(TARGET MigrationTest PROPERTY AUTOUIC ON)
+set_property(TARGET MigrationTest PROPERTY AUTORCC ON)
+target_include_directories(MigrationTest PRIVATE 3rdparty/simple-protobuf/include)
+target_link_libraries(MigrationTest PRIVATE Qt6::Test Qt6::Core Qt6::Concurrent Qt6::Widgets Qt6::Network)
+add_test(NAME SchemaMigrationCheck COMMAND MigrationTest)
+include(cmake/post_build.cmake)

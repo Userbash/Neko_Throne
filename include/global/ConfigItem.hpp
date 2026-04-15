@@ -40,11 +40,11 @@ namespace Configs_ConfigItem {
         bool save_control_no_save = false;
         QByteArray last_save_content_hash;
 
-        JsonStore() = default;
+        int schema_version = 1;
 
-        explicit JsonStore(QString fileName) {
-            fn = std::move(fileName);
-        }
+        JsonStore();
+
+        explicit JsonStore(QString fileName);
 
         void _add(configItem *item);
 
@@ -59,6 +59,8 @@ namespace Configs_ConfigItem {
         QJsonObject ToJson(const QStringList &without = {});
 
         QByteArray ToJsonBytes();
+
+        virtual void RunMigrations(QJsonObject &root) {}
 
         virtual void FromJson(QJsonObject object);
 

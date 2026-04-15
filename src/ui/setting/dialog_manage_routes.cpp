@@ -61,6 +61,7 @@ bool DialogManageRoutes::validate_dns_rules(const QString &rawString) {
 
 DialogManageRoutes::DialogManageRoutes(QWidget *parent) : QDialog(parent), ui(new Ui::DialogManageRoutes) {
     ui->setupUi(this);
+    setAttribute(Qt::WA_DeleteOnClose);
     auto profiles = Configs::profileManager->routes;
     for (const auto &item: profiles) {
         chainList << item.second;

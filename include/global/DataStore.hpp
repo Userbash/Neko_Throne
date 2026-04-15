@@ -6,6 +6,8 @@
 #endif
 
 namespace Configs {
+    const int CURRENT_SCHEMA_VERSION = 2;
+    const int CORE_VERSION = 20260415; // YYYYMMDD format for simple updates
 
     class Routing : public JsonStore {
     public:
@@ -160,6 +162,10 @@ namespace Configs {
         int vpn_mtu = 1500;
         bool vpn_ipv6 = false;
         bool disable_privilege_req = false;
+        bool tun_setcap_broken = false;
+        int pkexec_cancel_count = 0;
+        long long last_pkexec_cancel_time = 0;
+        int last_core_version = 0;
 
         // NTP
         bool enable_ntp = false;
