@@ -77,6 +77,7 @@ export CGO_ENABLED=0
 
 #### Go: core ####
 pushd core/server
+mkdir -p gen
 pushd gen
 protoc -I . --go_out=. --go-grpc_out=. libcore.proto
 popd
