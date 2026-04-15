@@ -282,6 +282,17 @@ void HideWindow(QWidget *w) {
     w->hide();
 }
 
+bool isImmutableOS() {
+#ifdef Q_OS_LINUX
+    static int cached = -1;
+    if (cached != -1) return cached == 1;
+    cached = QFile::exists("/run/ostree-booted") ? 1 : 0;
+    return cached == 1;
+#else
+    return false;
+#endif
+}
+
 void runOnUiThread(const std::function<void()> &callback, bool wait) {
     // Use qApp->thread() as it's the most reliable way to reach the main thread
     auto *app = qApp;

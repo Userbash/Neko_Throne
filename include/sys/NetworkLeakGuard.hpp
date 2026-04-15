@@ -77,5 +77,6 @@ private:
     QTimer *m_timer = nullptr;
     QFuture<void> m_auditFuture;
     std::atomic<bool> m_auditRunning{false};
+    std::atomic<bool> m_ipv6Blocked{false};
     QDateTime m_lastAuditStart;  // Timeout protection: reset flag if audit hangs
 };

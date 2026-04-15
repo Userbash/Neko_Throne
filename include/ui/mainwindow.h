@@ -81,6 +81,8 @@ public:
 
     bool get_elevated_permissions(int reason = 3);
 
+    void setupLogSystem();
+
     void show_log_impl(const QString &log);
 
     void start_select_mode(QObject *context, const std::function<void(int)> &callback);

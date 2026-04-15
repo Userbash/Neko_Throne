@@ -5,6 +5,9 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 #include "include/sys/NetworkLeakGuard.hpp"
 #include "include/global/Configs.hpp"
+#ifdef Q_OS_LINUX
+#include "include/sys/linux/LinuxCap.h"
+#endif
 
 #include <QDnsLookup>
 #include <QEventLoop>
@@ -257,14 +260,20 @@ LeakAuditResult NetworkLeakGuard::auditIPv6() {
 // ─── IPv6 block/restore (call when VPN activates/deactivates) ────────────────
 void NetworkLeakGuard::blockIPv6Leaks() {
 #ifdef Q_OS_LINUX
+    // If not root, try privileged shell (pkexec fallback)
     if (!Configs::IsAdmin()) {
-        qDebug() << "NetworkLeakGuard: blockIPv6Leaks skipped — not running as root";
+        const QString cmd = "sysctl -w net.ipv6.conf.all.disable_ipv6=1 && sysctl -w net.ipv6.conf.default.disable_ipv6=1";
+        if (Linux_Run_Privileged_Shell(cmd) == 0) {
+             m_ipv6Blocked.store(true, std::memory_order_release);
+        } else {
+             qDebug() << "NetworkLeakGuard: blockIPv6Leaks failed (privileged shell error)";
+        }
         return;
     }
-    QProcess::execute(QStringLiteral("sysctl"),
-        {QStringLiteral("-w"), QStringLiteral("net.ipv6.conf.all.disable_ipv6=1")});
-    QProcess::execute(QStringLiteral("sysctl"),
-        {QStringLiteral("-w"), QStringLiteral("net.ipv6.conf.default.disable_ipv6=1")});
+    if (QProcess::execute(QStringLiteral("sysctl"), {QStringLiteral("-w"), QStringLiteral("net.ipv6.conf.all.disable_ipv6=1")}) == 0 &&
+        QProcess::execute(QStringLiteral("sysctl"), {QStringLiteral("-w"), QStringLiteral("net.ipv6.conf.default.disable_ipv6=1")}) == 0) {
+        m_ipv6Blocked.store(true, std::memory_order_release);
+    }
 #elif defined(Q_OS_WIN)
     // NOTE: This registry write disables IPv6 system-wide and persists across
     // reboots. Only apply when the process is confirmed to be running as admin.
@@ -273,21 +282,31 @@ void NetworkLeakGuard::blockIPv6Leaks() {
         qWarning() << "NetworkLeakGuard: blockIPv6Leaks skipped — not running as administrator";
         return;
     }
-    QProcess::execute(QStringLiteral("reg"),
+    if (QProcess::execute(QStringLiteral("reg"),
         {QStringLiteral("add"),
          QStringLiteral(R"(HKLM\SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters)"),
          QStringLiteral("/v"), QStringLiteral("DisabledComponents"),
          QStringLiteral("/t"), QStringLiteral("REG_DWORD"),
          QStringLiteral("/d"), QStringLiteral("255"),
-         QStringLiteral("/f")});
+         QStringLiteral("/f")}) == 0) {
+        m_ipv6Blocked.store(true, std::memory_order_release);
+    }
 #endif
     // macOS: sing-box TUN handles IPv6 routing natively
 }
 
 void NetworkLeakGuard::restoreIPv6() {
+    if (!m_ipv6Blocked.exchange(false, std::memory_order_acq_rel)) {
+        return; // IPv6 was not blocked, nothing to restore
+    }
+
 #ifdef Q_OS_LINUX
+    // If not root, try privileged shell (pkexec fallback)
     if (!Configs::IsAdmin()) {
-        qDebug() << "NetworkLeakGuard: restoreIPv6 skipped — not running as root";
+        const QString cmd = "sysctl -w net.ipv6.conf.all.disable_ipv6=0 && sysctl -w net.ipv6.conf.default.disable_ipv6=0";
+        if (Linux_Run_Privileged_Shell(cmd) != 0) {
+             qDebug() << "NetworkLeakGuard: restoreIPv6 failed (privileged shell error)";
+        }
         return;
     }
     QProcess::execute(QStringLiteral("sysctl"),

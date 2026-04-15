@@ -141,15 +141,22 @@ namespace Configs {
     {
         QJsonObject object;
         if (type.isEmpty() || type == "tcp") return object;
-        if (!type.isEmpty()) object["type"] = type;
+        
+        // Map xhttp to http for sing-box compatibility
+        QString effectiveType = type;
+        if (effectiveType == "xhttp") effectiveType = "http";
+        
+        if (!effectiveType.isEmpty()) object["type"] = effectiveType;
         if (!path.isEmpty()) object["path"] = path;
         if (!method.isEmpty()) object["method"] = method;
         if (!headers.isEmpty()) {
             object["headers"] = qStringListToJsonObject(headers);
         }
         if (!host.isEmpty()) {
-            if (type == "http" || type == "httpupgrade" || type == "xhttp") object["host"] = host;
-            if (type == "ws") {
+            // Modern spec: host MUST be an array of strings
+            QJsonArray hostArray = { host };
+            if (effectiveType == "http" || effectiveType == "httpupgrade") object["host"] = hostArray;
+            if (effectiveType == "ws") {
                 auto headersObj = object["headers"].isObject() ? object["headers"].toObject() : QJsonObject();
                 headersObj["Host"] = host;
                 object["headers"] = headersObj;

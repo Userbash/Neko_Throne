@@ -422,6 +422,13 @@ qt_finalize_executable(Throne)
 # ═══════════════════════════════════════════════════════════════════════════════
 enable_testing()
 find_package(Qt6 REQUIRED COMPONENTS Test)
-add_executable(ArtifactTest tests/ArtifactTest.cpp)
-target_link_libraries(ArtifactTest PRIVATE Qt6::Test Qt6::Core Qt6::Concurrent Qt6::Widgets)
+add_executable(ArtifactTest 
+    tests/ArtifactTest.cpp
+    src/global/Utils.cpp
+    3rdparty/base64.cpp
+)
+set_property(TARGET ArtifactTest PROPERTY AUTOMOC ON)
+set_property(TARGET ArtifactTest PROPERTY AUTOUIC ON)
+set_property(TARGET ArtifactTest PROPERTY AUTORCC ON)
+target_link_libraries(ArtifactTest PRIVATE Qt6::Test Qt6::Core Qt6::Concurrent Qt6::Widgets Qt6::Network)
 add_test(NAME FullArtifactCheck COMMAND ArtifactTest)

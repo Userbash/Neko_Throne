@@ -4,6 +4,8 @@
 
 bool Linux_HavePkexec();
 
+bool Linux_CanElevate();
+
 QString Linux_FindCapProgsExec(const QString &name);
 
 int Linux_Run_Command(const QString &commandName, const QString &args);

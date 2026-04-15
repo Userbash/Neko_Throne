@@ -119,12 +119,17 @@ namespace Configs {
         QJsonObject userObj;
         userObj["id"] = uuid;
         userObj["encryption"] = "none";
-        if (!flow.isEmpty()) userObj["flow"] = flow;
+        // If flow is empty but it's VLESS/Reality or modern VLESS, use xtls-rprx-vision for better compatibility
+        if (flow.isEmpty() && tls->enabled) userObj["flow"] = "xtls-rprx-vision";
+        else if (!flow.isEmpty()) userObj["flow"] = flow;
         QJsonObject vnextEntry;
         vnextEntry["address"] = server;
         vnextEntry["port"] = server_port;
         vnextEntry["users"] = QJsonArray{userObj};
-        object["settings"] = QJsonObject{{"vnext", QJsonArray{vnextEntry}}};
+        object["settings"] = QJsonObject{
+            {"vnext", QJsonArray{vnextEntry}},
+            {"packet_encoding", "xudp"}
+        };
 
         QJsonObject streamSettings;
         QString network = transport->type;

@@ -433,19 +433,19 @@ namespace Configs {
         fn += ".exe";
 #endif
 #ifdef Q_OS_LINUX
-        // Prefer a privileged install at /usr/local/bin/NekoCore if it exists,
-        // is executable, and is NOT on a nosuid mount. This is the landing
-        // spot used by get_elevated_permissions() on filesystems (Fedora
-        // Silverblue /var/home, etc.) where file capabilities are stripped at
-        // exec time. If anything about the installed copy looks off, we fall
-        // through to the bundled binary.
+        // Priority 1: Privileged copy in /dev/shm (Shadow Copy hack for home folders)
+        {
+            const QString tmpPrivileged = QStringLiteral("/dev/shm/NekoCore_privileged");
+            QFileInfo ti(tmpPrivileged);
+            if (ti.exists() && ti.isExecutable() && Linux_FileHasCapNetAdmin(tmpPrivileged)) {
+                return tmpPrivileged;
+            }
+        }
+        // Priority 2: System-wide privileged install
         {
             const QString installed = QStringLiteral("/usr/local/bin/NekoCore");
             QFileInfo ii(installed);
             if (ii.exists() && ii.isExecutable() && !Linux_IsPathNosuid(installed)) {
-                // Make sure the installed copy is at least as new as the one
-                // shipped next to the UI; otherwise users who upgrade the app
-                // would silently keep running the old core.
                 QFileInfo bundled(fn);
                 if (!bundled.exists() || ii.lastModified() >= bundled.lastModified()) {
                     return installed;

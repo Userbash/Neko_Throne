@@ -496,9 +496,15 @@ bool MainWindow::set_system_dns(bool set, bool save_set) {
 void MainWindow::profile_start(int _id) {
     if (Configs::dataStore->prepare_exit) return;
 #ifdef Q_OS_LINUX
-    if (Configs::dataStore->enable_dns_server && Configs::dataStore->dns_server_listen_port <= 1024) {
+    if ((Configs::dataStore->enable_dns_server && Configs::dataStore->dns_server_listen_port <= 1024) || Configs::dataStore->spmode_vpn) {
         if (!get_elevated_permissions()) {
-            MW_show_log(QString("Failed to get admin access, cannot listen on port %1 without it").arg(Configs::dataStore->dns_server_listen_port));
+            MW_show_log(tr("Failed to get admin access. Privileges are required for TUN mode and listening on ports <= 1024."));
+            return;
+        }
+        
+        // Re-check after elevation attempt to prevent gRPC error 5
+        if (!Configs::IsCorePrivileged(true)) {
+            MessageBoxWarning(software_name, tr("The core process still reports no administrative privileges. TUN mode cannot be started."));
             return;
         }
     }
@@ -555,13 +561,19 @@ void MainWindow::profile_start(int _id) {
         //
         bool rpcOK;
         QString error = defaultClient->Start(&rpcOK, req);
-        if (!rpcOK) {
-            return false;
-        }
-        if (!error.isEmpty()) {
+        if (!rpcOK || !error.isEmpty()) {
+            // Transaction failed: ensure system is NOT in proxy mode
+            ClearSystemProxy();
+            NetworkLeakGuard::instance()->stopMonitoring();
+            NetworkLeakGuard::instance()->restoreIPv6();
+            
+            if (!rpcOK) {
+                MW_show_log("[Fatal] gRPC Start call failed. Core might be dead or configuration is invalid.");
+                return false;
+            }
+            
             if (error.contains("configure tun interface")) {
                 runOnUiThread([=, this] {
-
                     QMessageBox msg(
                         QMessageBox::Information,
                         tr("Tun device misbehaving"),
@@ -592,7 +604,14 @@ void MainWindow::profile_start(int _id) {
             });
             return false;
         }
-        //
+        
+        // --- Success Block (Atomic Commit) ---
+        // Only now we enable system-wide settings
+        if (Configs::dataStore->spmode_system_proxy) {
+            auto socks_port = Configs::dataStore->inbound_socks_port;
+            SetSystemProxy(socks_port, socks_port, Configs::dataStore->proxy_scheme);
+        }
+
         {
             QMutexLocker locker(&Stats::trafficLooper->loop_mutex);
             Stats::trafficLooper->proxy = std::make_shared<Stats::TrafficData>("proxy");
@@ -635,6 +654,14 @@ void MainWindow::profile_start(int _id) {
 
     // check core state
     if (!Configs::dataStore->core_running) {
+        QString corePath = Configs::FindCoreRealPath();
+        if (!QFile::exists(corePath)) {
+            MW_show_log(tr("[Fatal] Core binary not found at %1").arg(corePath));
+            MessageBoxWarning(software_name, tr("Core binary not found. Please check your installation."));
+            mu_starting.unlock();
+            return;
+        }
+
         runOnThread(
             [=, this] {
                 MW_show_log(tr("Try to start the config, but the core has not listened to the RPC port, so restart it..."));
@@ -737,12 +764,9 @@ void MainWindow::profile_stop(bool crash, bool block, bool manual) {
     if (!mu_stopping.tryLock()) {
         return;
     }
-    QMutex blocker;
-    if (block) blocker.lock();
+    auto doneSemaphore = std::make_shared<QSemaphore>(0);
 
-    UpdateConnectionListWithRecreate({});
-
-    runOnNewThread([=, this, &blocker] {
+    runOnNewThread([=, this] {
         Stats::trafficLooper->loop_enabled = false;
         Stats::connection_lister->suspend = true;
         if (Stats::trafficLooper->loop_mutex.tryLock(5000)) {
@@ -776,7 +800,7 @@ void MainWindow::profile_stop(bool crash, bool block, bool manual) {
         Configs::dataStore->need_keep_vpn_off = false;
         running = nullptr;
 
-        if (block) blocker.unlock();
+        doneSemaphore->release();
 
         runOnUiThread([=, this] {
             refresh_status();
@@ -787,7 +811,6 @@ void MainWindow::profile_stop(bool crash, bool block, bool manual) {
     });
 
     if (block) {
-        blocker.lock();
-        blocker.unlock();
+        doneSemaphore->tryAcquire(1, 10000);
     }
 }

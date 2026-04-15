@@ -28,14 +28,13 @@ namespace Configs_sys {
 
     class CoreProcess : public QProcess
     {
+        Q_OBJECT
     public:
         QString tag;
         QString program;
         QStringList arguments;
 
-        ~CoreProcess();
-
-        // start & kill is one time
+        virtual ~CoreProcess() override;
 
         void Start();
 
@@ -45,7 +44,6 @@ namespace Configs_sys {
 
         void Restart();
 
-        // Current lifecycle state (read-only by external code)
         CoreLifecycleState lifecycleState() const { return m_state; }
 
         int start_profile_when_core_is_up = -1;
@@ -63,6 +61,7 @@ namespace Configs_sys {
         bool started = false;
         bool crashed = false;
     };
+
 
     inline QAtomicInt logCounter;
 } // namespace Configs_sys

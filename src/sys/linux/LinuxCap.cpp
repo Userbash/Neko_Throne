@@ -94,6 +94,10 @@ bool Linux_HaveSudo() {
     return true;
 }
 
+bool Linux_CanElevate() {
+    return Linux_HavePkexec() || Linux_HaveSudo();
+}
+
 int Linux_Run_Command(const QString &commandName, const QString &args) {
     Linux_Init_Paths();
     QString fullCommand = Linux_FindCapProgsExec(commandName);

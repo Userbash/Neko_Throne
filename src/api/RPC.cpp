@@ -50,6 +50,7 @@ namespace QtGrpc {
             request.setAttribute(QNetworkRequest::Http2DirectAttribute, true);
             request.setHeader(QNetworkRequest::ContentTypeHeader, QLatin1String{"application/grpc"});
             request.setRawHeader("Cache-Control", "no-store");
+            request.setRawHeader("x-client-version", NKR_VERSION);
             request.setRawHeader(GrpcAcceptEncodingHeader, QByteArray{"identity,deflate,gzip"});
             request.setRawHeader(AcceptEncodingHeader, QByteArray{"identity,gzip"});
             request.setRawHeader(TEHeader, QByteArray{"trailers"});
@@ -61,20 +62,20 @@ namespace QtGrpc {
             return nm->post(request, msg);
         }
 
-        static QByteArray processReply(QNetworkReply *networkReply, QNetworkReply::NetworkError &statusCode) {
-            if (!networkReply) {
+        static QByteArray processReply(QPointer<QNetworkReply> networkReply, QNetworkReply::NetworkError &statusCode) {
+            if (networkReply.isNull()) {
                 statusCode = QNetworkReply::NetworkError::UnknownNetworkError;
                 return {};
             }
 
-            if (networkReply->error() != QNetworkReply::NoError) {
-                statusCode = networkReply->error();
+            statusCode = networkReply->error();
+            if (statusCode != QNetworkReply::NoError) {
                 MW_show_log(QString("[gRPC] Network Error: %1 (%2)").arg(networkReply->errorString()).arg(static_cast<int>(statusCode)));
                 return {};
             }
 
-            if (!networkReply->isOpen() || !networkReply->isReadable()) {
-                statusCode = QNetworkReply::NetworkError::OperationCanceledError;
+            if (!networkReply->isReadable()) {
+                statusCode = QNetworkReply::NetworkError::ProtocolUnknownError;
                 return {};
             }
 
@@ -90,35 +91,27 @@ namespace QtGrpc {
         }
 
         QNetworkReply::NetworkError call(const QString &method, const QString &service, const QByteArray &args, QByteArray &qByteArray, int timeout_ms) {
-            QNetworkReply *networkReply = post(method, service, args);
+            QPointer<QNetworkReply> networkReply = post(method, service, args);
 
-            // Use semaphore instead of blocking event loop - prevents deadlocks on gRPC timeout
-            auto replySemaphore = std::make_shared<QSemaphore>(0);
-
-            if (timeout_ms > 0) {
+            if (timeout_ms > 0 && !networkReply.isNull()) {
                 auto *abortTimer = new QTimer(nullptr);
                 abortTimer->setSingleShot(true);
                 abortTimer->setInterval(timeout_ms);
-                QObject::connect(abortTimer, &QTimer::timeout, networkReply, &QNetworkReply::abort);
-                QObject::connect(networkReply, &QNetworkReply::finished, abortTimer, &QTimer::deleteLater);
+                QObject::connect(abortTimer, &QTimer::timeout, networkReply.data(), &QNetworkReply::abort);
+                QObject::connect(networkReply.data(), &QNetworkReply::finished, abortTimer, &QTimer::deleteLater);
                 abortTimer->start();
             }
 
-            // Signal semaphore when reply finished - non-blocking wait
-            QObject::connect(networkReply, &QNetworkReply::finished, [replySemaphore]() {
-                replySemaphore->release();
-            });
-
-            // Wait with timeout - no longer blocks the event loop
-            int waitTimeout = timeout_ms > 0 ? timeout_ms + 5000 : 20000;
-            if (!replySemaphore->tryAcquire(1, waitTimeout)) {
-                networkReply->abort();  // Ensure cleanup on timeout
+            QEventLoop loop;
+            if (!networkReply.isNull()) {
+                QObject::connect(networkReply.data(), &QNetworkReply::finished, &loop, &QEventLoop::quit);
+                loop.exec();
             }
 
             auto grpcStatus = QNetworkReply::NetworkError::ProtocolUnknownError;
             qByteArray = processReply(networkReply, grpcStatus);
 
-            networkReply->deleteLater();
+            if (!networkReply.isNull()) networkReply->deleteLater();
             return grpcStatus;
         }
 
@@ -134,6 +127,11 @@ namespace QtGrpc {
         }
 
         ~Http2GrpcChannelPrivate() {
+            // Forcefully abort and cleanup pending replies
+            for (auto *reply : nm->findChildren<QNetworkReply*>()) {
+                reply->abort();
+                reply->deleteLater();
+            }
             nm->deleteLater();
             thread->quit();
             thread->wait();

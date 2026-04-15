@@ -27,9 +27,19 @@ class SafeUIFunction {
 public:
     using Func = std::function<void(Args...)>;
     
+    // Pass args by value to the capture block to ensure they stay valid 
+    // even if the original objects in the worker thread are destroyed.
     void operator()(Args... args) const { 
         if (guard && f) {
-            f(args...); 
+            auto ctx = guard;
+            auto func = f;
+            auto args_copy = std::make_tuple(args...);
+            
+            runOnUiThread([ctx, func, args_copy]() {
+                if (ctx && func) {
+                    std::apply(func, args_copy);
+                }
+            });
         }
     }
     
@@ -209,6 +219,7 @@ void HideWindow(QWidget *w);
 
 //
 
+bool isImmutableOS();
 void runOnUiThread(const std::function<void()> &callback, bool wait = false);
 
 void runOnNewThread(const std::function<void()> &callback, bool wait = false);

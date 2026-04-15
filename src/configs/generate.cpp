@@ -346,11 +346,16 @@ namespace Configs {
             addr = spl[0];
             port = spl[1].toInt();
         }
+        
+        // Final polish for sing-box 1.13+: ensure 'type' is always present and correct.
+        // Default type is 'udp' if not already set by prefixes above.
+        if (type.isEmpty()) type = "udp";
+
         QJsonObject res = {
             {"type", type},
-            {"server", addr},
+            {"address", addr},
         };
-        if (port != -1) res["server_port"] = port;
+        if (port != -1) res["address_port"] = port; // Modern cores prefer address_port or port inside address string, but we'll use address_port for clarity
         if (!path.isEmpty()) res["path"] = path;
 
         return res;
@@ -405,74 +410,25 @@ namespace Configs {
 
         // direct: use effective address (localhost/local -> fallback on Linux+TUN to avoid "No default interface")
         QString directDnsAddress = effectiveDirectDnsForTun(dataStore->routing->direct_dns, ctx);
-        auto directDnsObj = buildDnsObj(directDnsAddress, ctx);
+        QJsonObject directDnsObj = buildDnsObj(directDnsAddress, ctx);
         directDnsObj["tag"] = "dns-direct";
-        directDnsObj["domain_resolver"] = "dns-local";
+        
         if (dataStore->routing->dns_final_out == "direct") {
             servers.prepend(directDnsObj);
         } else {
             servers.append(directDnsObj);
         }
 
-        // Handle localhost
+        // Remote DNS (must be an object)
         if (!ctx->forTest) {
-            rules += QJsonObject{
-                    {"domain", "localhost"},
-                    {"action", "predefined"},
-                    {"query_type", "A"},
-                    {"rcode", "NOERROR"},
-                    {"answer", "localhost. IN A 127.0.0.1"},
-                };
-
-            rules += QJsonObject{
-                    {"domain", "localhost"},
-                    {"action", "predefined"},
-                    {"query_type", "AAAA"},
-                    {"rcode", "NOERROR"},
-                    {"answer", "localhost. IN AAAA ::1"},
-                };
-        }
-
-        // HijackRules
-        if (dataStore->enable_dns_server && !ctx->forTest)
-        {
-            rules += QJsonObject{
-                        {"rule_set", hijackDeps->hijackGeoAssets},
-                        {"domain", hijackDeps->hijackDomains},
-                        {"domain_suffix", hijackDeps->hijackDomainSuffix},
-                        {"domain_regex", hijackDeps->hijackDomainRegex},
-                        {"query_type", "A"},
-                        {"action", "predefined"},
-                        {"rcode", "NOERROR"},
-                        {"answer", QString("* IN A %1").arg(dataStore->dns_v4_resp)},
-                    };
-
-            if (!dataStore->dns_v6_resp.isEmpty())
-            {
-                rules += QJsonObject{
-                            {"rule_set", hijackDeps->hijackGeoAssets},
-                            {"domain", hijackDeps->hijackDomains},
-                            {"domain_suffix", hijackDeps->hijackDomainSuffix},
-                            {"domain_regex", hijackDeps->hijackDomainRegex},
-                            {"query_type", "AAAA"},
-                            {"action", "predefined"},
-                            {"rcode", "NOERROR"},
-                            {"answer", QString("* IN AAAA %1").arg(dataStore->dns_v6_resp)},
-                        };
+            if (isTailscale) {
+                // Tailscale DNS object already built above
+            } else {
+                QJsonObject remoteDnsObj = buildDnsObj(dataStore->routing->remote_dns, ctx);
+                remoteDnsObj["tag"] = "dns-remote";
+                remoteDnsObj["detour"] = "proxy";
+                servers.append(remoteDnsObj);
             }
-        }
-
-        // Direct DNS rules MUST come before FakeIP to avoid giving fake IPs to direct domains
-        if (dnsDeps->needDirectDnsRules) {
-            rules += QJsonObject{
-                    {"rule_set", dnsDeps->directRuleSets},
-                    {"domain", dnsDeps->directDomains},
-                    {"domain_suffix", dnsDeps->directSuffixes},
-                    {"domain_keyword", dnsDeps->directKeywords},
-                    {"domain_regex", dnsDeps->directRegexes},
-                    {"action", "route"},
-                    {"server", "dns-direct"},
-                };
         }
 
         // FakeIP — only after direct rules, so direct domains get real IPs
@@ -500,7 +456,7 @@ namespace Configs {
             independentCache = true;
         }
 
-        // Local: avoid "underlying" on Linux+TUN when no override set (prevents "No default interface" at startup)
+        // Local resolver: avoid "underlying" on Linux+TUN when no override set (prevents "No default interface" at startup)
         QString dnsLocalAddress = dataStore->core_box_underlying_dns;
         if (dnsLocalAddress.isEmpty()) {
             if (ctx->tunEnabled && getOS() == Linux)
@@ -665,6 +621,15 @@ namespace Configs {
                 ctx->error += error;
                 return;
             }
+            
+            // Explicit Transport Mapping: xhttp -> http for SingBox
+            if (object.contains("transport")) {
+                QJsonObject transObj = object["transport"].toObject();
+                if (transObj["type"].toString() == "xhttp") {
+                    transObj["type"] = "http";
+                    object["transport"] = transObj;
+                }
+            }
             object["tag"] = tag;
             if (!nextTag.isEmpty() && link) object["detour"] = nextTag;
             if (ent->outbound->MustXray()) {
@@ -742,6 +707,24 @@ namespace Configs {
         {"type", "direct"},
         {"tag", "direct"}
         });
+
+        // Pre-flight: Ensure 'proxy' outbound exists if referenced by router
+        bool proxyFound = false;
+        for (const auto &out : ctx->outbounds) {
+            if (out.toObject()["tag"].toString() == "proxy") {
+                proxyFound = true;
+                break;
+            }
+        }
+        if (!proxyFound) {
+            // If proxy not found but might be needed, add a default one or the main ent
+            auto [object, error] = ctx->ent->outbound->Build();
+            if (error.isEmpty()) {
+                QJsonObject proxyObj = object;
+                proxyObj["tag"] = "proxy";
+                ctx->outbounds.prepend(proxyObj);
+            }
+        }
 
         ctx->buildConfigResult->coreConfig["endpoints"] = ctx->endpoints;
         ctx->buildConfigResult->coreConfig["outbounds"] = ctx->outbounds;
@@ -1018,6 +1001,65 @@ namespace Configs {
         };
     }
 
+    void FinalizeSingBoxConfig(QJsonObject &root) {
+        if (!root.contains("outbounds")) return;
+        QJsonArray outbounds = root["outbounds"].toArray();
+        QStringList availableTags;
+        for (const auto &outVal : outbounds) {
+            availableTags.append(outVal.toObject()["tag"].toString());
+        }
+        
+        QJsonObject route = root["route"].toObject();
+        QJsonArray rules = route["rules"].toArray();
+        bool changed = false;
+
+        for (int i = 0; i < rules.size(); ++i) {
+            QJsonObject rule = rules[i].toObject();
+            QString target = rule["outbound"].toString();
+            if (!target.isEmpty() && target != "direct" && target != "block" && !availableTags.contains(target)) {
+                MW_show_log(QString("Guard: Outbound tag '%1' not found, falling back to 'direct'").arg(target));
+                rule["outbound"] = "direct";
+                rules[i] = rule;
+                changed = true;
+            }
+        }
+        
+        if (changed) {
+            route["rules"] = rules;
+            root["route"] = route;
+        }
+
+        bool proxyNeeded = (route["final"].toString() == "proxy");
+        for (const auto &ruleVal : rules) {
+             if (ruleVal.toObject()["outbound"].toString() == "proxy") proxyNeeded = true;
+        }
+        bool proxyExists = availableTags.contains("proxy");
+        if (proxyNeeded && !proxyExists && outbounds.size() > 0) {
+            MW_show_log("Guard: Outbound 'proxy' missing, aliasing to first outbound");
+            QJsonObject proxyAlias = outbounds[0].toObject();
+            proxyAlias["tag"] = "proxy";
+            outbounds.prepend(proxyAlias);
+        }
+
+        // Apply mapping
+        for (int i = 0; i < outbounds.size(); ++i) {
+            QJsonObject out = outbounds[i].toObject();
+            if (out.contains("transport")) {
+                QJsonObject trans = out["transport"].toObject();
+                if (trans["type"].toString() == "xhttp") {
+                    trans["type"] = "http";
+                    trans["version"] = 2; 
+                }
+                if (trans.contains("host") && trans["host"].isString()) {
+                    trans["host"] = QJsonArray{trans["host"].toString()};
+                }
+                out["transport"] = trans;
+            }
+            outbounds[i] = out;
+        }
+        root["outbounds"] = outbounds;
+    }
+
     std::shared_ptr<BuildConfigResult> BuildSingBoxConfig(const std::shared_ptr<ProxyEntity>& ent) {
         if (ent->type == "custom")
         {
@@ -1094,6 +1136,16 @@ namespace Configs {
             ctx->buildConfigResult->error = ctx->error;
             return ctx->buildConfigResult;
         }
+
+        // Apply Final Mile post-processing
+        FinalizeSingBoxConfig(ctx->buildConfigResult->coreConfig);
+
+        // Final integrity check
+        if (ctx->buildConfigResult->coreConfig.isEmpty()) {
+            ctx->buildConfigResult->error = "Generated configuration is empty";
+            return ctx->buildConfigResult;
+        }
+
         return ctx->buildConfigResult;
     }
 
