@@ -15,6 +15,7 @@
 
 #include "include/ui/setting/ThemeManager.hpp"
 #include <mutex>
+#include <QQueue>
 #include <chrono>
 
 #include "include/ui/setting/Icon.hpp"
