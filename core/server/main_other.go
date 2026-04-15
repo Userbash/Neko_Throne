@@ -6,7 +6,6 @@ package main
 import (
 	"ThroneCore/gen"
 	"ThroneCore/internal/boxmain"
-	"ThroneCore/test_utils"
 	"context"
 	"flag"
 	"fmt"
@@ -93,9 +92,6 @@ func main() {
 	fmt.Println("Xray-core:", core.Version())
 	fmt.Println()
 	runtimeDebug.SetMemoryLimit(2 * 1024 * 1024 * 1024) // 2GB
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	RunCore()
 	return
