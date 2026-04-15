@@ -6,7 +6,6 @@ package main
 import (
 	"ThroneCore/gen"
 	"ThroneCore/internal/boxmain"
-	"context"
 	"flag"
 	"fmt"
 	"github.com/xtls/xray-core/core"
