@@ -1,30 +1,55 @@
+# ═══════════════════════════════════════════════════════════════════════════════
 # Build & Binary
-/build/
+# ═══════════════════════════════════════════════════════════════════════════════
+build/
+build-asan/
 /core/server/build/
+/deployment/*
+!/deployment/.gitkeep
 Neko_Throne
 NekoCore
+NekoCore.exe
 *.o
 *.a
 *.so
+*.so.*
 *.qm
 *.pb.cc
 *.pb.h
+*.exe
+*.dll
+*.pdb
 
-# Cache & Temp
+# ─── Tools & Artifacts ────────────────────────────────────────────────────────
+/linuxdeploy-root/
+/linuxdeploy-plugin-qt-root/
+/tools-bin/
+/tools-storage/
+/protoc_install/
+/lint-report/
+/qt6/
+
+# ─── Cache & Temp ─────────────────────────────────────────────────────────────
 .cache/
 .tmp/
-/tmp/go-mod-cache
-/tmp/go-build-cache
+/tmp/go-mod-cache/
+/tmp/go-build-cache/
+/core/server/gen/*.pb.go
+/core/server/gen/*.pb.*.go
 *.log
 *.tmp
 *.bak
-
-# IDE & OS
-.vscode/
-.idea/
+*.swp
 .DS_Store
 .directory
 
-# Go specific
+# ─── IDE & Config ─────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+.claude/
+cmake-build-*/
+*.user
+
+# ─── Go specific ──────────────────────────────────────────────────────────────
 go.work
 go.work.sum

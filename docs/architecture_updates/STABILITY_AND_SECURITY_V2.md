@@ -17,6 +17,9 @@
     - Added an "Emergency Network Reset" and "Reset Privilege Cache" option in the VPN Troubleshooting dialog for user-driven recovery.
 - **Graceful Failure:** Added explicit check for `pkexec` existence and handled exit code 126/127 (Polkit cancellation) as a graceful user cancellation rather than a fatal gRPC error.
 
-## 4. Build System
+## 4. Build System & Infrastructure
 - **Deterministic Builds:** Post-build commands in CMake ensure `NekoCore` binary is always executable (`chmod +x`).
 - **Dependency Management:** Fixed Protobuf generation (`myproto`) to guarantee consistent header availability (`libcore.pb.h`).
+- **gRPC Contract Integrity:** Restored the critical `libcore.proto` definition to the core server and established a "directory-first" policy in build scripts.
+- **CI Robustness:** Enhanced GitHub Actions pipelines with automatic directory synchronization (`mkdir -p`) to prevent race conditions or missing path errors during parallel builds.
+- **Clean Repository State:** Standardized `.gitignore` to enforce a clear separation between source code, generated artifacts, and localized environment tools.

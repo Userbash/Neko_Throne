@@ -1,8 +1,12 @@
-*.log
+# ─── Core specific artifacts ──────────────────────────────────────────────────
+/build/
 *.pem
-*.json
-*.exe
 *.dat
 *.db
-server/gen/*.pb.go
-server/gen/*.pb.*.go
+*.log
+
+# ─── Generated Code ───────────────────────────────────────────────────────────
+# We ignore generated Go code but keep the .proto definition
+/server/gen/*.pb.go
+/server/gen/*.pb.*.go
+/server/gen/libcore_grpc.pb.go

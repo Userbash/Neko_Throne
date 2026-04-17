@@ -104,6 +104,7 @@ echo ">> Building Go core (sing-box + Xray)..."
 pushd core/server > /dev/null
 
 # Generate protobuf code
+mkdir -p gen
 pushd gen > /dev/null
 protoc -I . --go_out=. --go-grpc_out=. libcore.proto
 popd > /dev/null

@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Throne
-Comment=Proxy configuration manager
-Exec=Neko_Throne
-Icon=Throne
-Terminal=false
-Categories=Network;Proxy;

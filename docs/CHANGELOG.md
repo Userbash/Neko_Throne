@@ -1,19 +1,21 @@
-# Neko_Throne Changelog
+# Changelog
 
-## [Version 1.0.0-stable] - 2026-04-15
+## [Unreleased]
 
-### Security & Hardening
-- **Privilege Elevation (Async):** Replaced synchronous `pkexec` calls and `sudo` fallbacks with a robust, asynchronous `QProcess` implementation. This eliminates GUI freezing during authorization.
-- **Nosuid Protection:** Implemented `PrivilegeValidator` to dynamically detect file system security flags (`nosuid`/`noexec`). The system now safely re-routes privileged core binaries to the user's `~\/.cache` directory, ensuring `setcap` operations succeed.
-- **Immutable OS Compatibility:** Added automatic detection for Immutable OS (e.g., Fedora Silverblue). On such systems, the application skips `setcap` and uses direct `pkexec` elevation to maintain compliance with system security policies.
-- **EAFP Implementation:** Refactored backend network management (IPv6 Leak Guard) to adopt the EAFP (Easier to Ask for Forgiveness than Permission) pattern, removing rigid UID/root checks that caused instability in containerized environments.
+### Infrastructure & CI/CD
+- **Fixed:** Restored `core/server/gen/libcore.proto` definition which was missing in the development branch, causing gRPC code generation failures.
+- **Improved CI Robustness:** Updated GitHub Actions workflows and Go build scripts to automatically ensure the existence of the `gen` directory before code generation.
+- **Workspace Optimization:** Performed a deep cleanup of the repository, removing legacy deployment tools, temporary build artifacts, and local log files.
+- **Refined Version Control:** Completely overhauled `.gitignore` rules at both root and core levels to prevent accidental commits of binaries, IDE configs, and generated Go code while protecting critical `.proto` definitions.
 
-### System Stability
-- **Atomic Persistence:** Migrated configuration storage to `QSaveFile`, guaranteeing data integrity even if the process crashes during a write operation.
-- **IPC Watchdog:** Integrated `fuser`-based port monitoring to kill stale gRPC server processes before launching a new instance, preventing "Process is already running" errors.
-- **UI Responsiveness:** Implemented a non-blocking UI state machine. The application now disables only the "Start" button during initialization, keeping the interface interactive and responsive.
-- **Thread Safety:** Enforced safe UI updates using `QMetaObject::invokeMethod` to prevent inter-thread access violations in the GUI.
+### Build System
+- Standardized the Go backend build pipeline to strictly enforce `amd64` architecture.
+- Added explicit directory guards in `scripts/ci/build_go.sh` to support clean-slate builds in containerized environments.
+- Updated documentation to reflect the latest stability improvements in the build process.
 
-### Configuration & Routing
-- **Last Mile Filtering:** Added an automated outbound tag validator in the Go generator. If a routing rule references an invalid outbound tag, it automatically falls back to `direct`, preventing the core from crashing on startup.
-- **Auto-Migration:** Integrated automatic configuration migration. Upon loading, legacy VLESS profiles are updated to support `xtls-rprx-vision`, and outdated transport settings are mapped to modern HTTP/2 standards.
+## [0.0.0.1] - 2026-04-16
+### Initial Architecture Overhaul
+- Migrated to `QSaveFile` for atomic configuration persistence.
+- Implemented EAFP pattern in Go backend for more resilient privilege management.
+- Introduced `PrivilegeValidator` for dynamic routing of core binaries on restricted filesystems.
+- Standardized C++ linting and static analysis (clang-tidy, ASAN).
