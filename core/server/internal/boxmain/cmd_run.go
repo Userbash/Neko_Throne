@@ -68,9 +68,9 @@ func validateOutbounds(options *option.Options) {
 	// Default fallback: direct
 	for i := range options.Route.Rules {
 		rule := &options.Route.Rules[i]
-		if rule.DefaultOptions.ActionOptions.Outbound != "" && !outboundTags[rule.DefaultOptions.ActionOptions.Outbound] {
-			log.Warn("Outbound tag '%s' missing, falling back to 'direct'", rule.DefaultOptions.ActionOptions.Outbound)
-			rule.DefaultOptions.ActionOptions.Outbound = "direct"
+		if rule.DefaultOptions.RouteOptions.Outbound != "" && !outboundTags[rule.DefaultOptions.RouteOptions.Outbound] {
+			log.Warn("Outbound tag '%s' missing, falling back to 'direct'", rule.DefaultOptions.RouteOptions.Outbound)
+			rule.DefaultOptions.RouteOptions.Outbound = "direct"
 		}
 	}
 }

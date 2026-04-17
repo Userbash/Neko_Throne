@@ -20,6 +20,6 @@
 ## 4. Build System & Infrastructure
 - **Deterministic Builds:** Post-build commands in CMake ensure `NekoCore` binary is always executable (`chmod +x`).
 - **Dependency Management:** Fixed Protobuf generation (`myproto`) to guarantee consistent header availability (`libcore.pb.h`).
-- **gRPC Contract Integrity:** Restored the critical `libcore.proto` definition to the core server and established a "directory-first" policy in build scripts.
-- **CI Robustness:** Enhanced GitHub Actions pipelines with automatic directory synchronization (`mkdir -p`) to prevent race conditions or missing path errors during parallel builds.
-- **Clean Repository State:** Standardized `.gitignore` to enforce a clear separation between source code, generated artifacts, and localized environment tools.
+- **gRPC Contract Integrity:** Re-established the `libcore.proto` source of truth and implemented directory guards in CI to handle clean-state builds.
+- **Upstream Synchronization:** Refactored core Go logic to maintain compatibility with `sing-box v1.11+` breaking changes, specifically regarding routing rule structures (`ActionOptions`).
+- **Pipeline Reliability:** Added defensive scripting in GitHub Actions to validate tool availability (e.g., `ccache`) before execution, ensuring cleaner failure logs.

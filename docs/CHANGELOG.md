@@ -3,15 +3,18 @@
 ## [Unreleased]
 
 ### Infrastructure & CI/CD
-- **Fixed:** Restored `core/server/gen/libcore.proto` definition which was missing in the development branch, causing gRPC code generation failures.
-- **Improved CI Robustness:** Updated GitHub Actions workflows and Go build scripts to automatically ensure the existence of the `gen` directory before code generation.
-- **Workspace Optimization:** Performed a deep cleanup of the repository, removing legacy deployment tools, temporary build artifacts, and local log files.
-- **Refined Version Control:** Completely overhauled `.gitignore` rules at both root and core levels to prevent accidental commits of binaries, IDE configs, and generated Go code while protecting critical `.proto` definitions.
+- **Restored gRPC definitions:** Reinstated the `core/server/gen/libcore.proto` file, restoring the service contract between the frontend and backend.
+- **CI/CD Hardening:** 
+  - Fixed "No such file or directory" errors in GitHub Actions by adding automatic directory synchronization (`mkdir -p`) for generated assets.
+  - Added defensive environment checks for `ccache` to prevent noise in build logs during execution failures.
+- **Repository Hygiene:** 
+  - Standardized `.gitignore` rules to strictly separate source code from binaries and localized IDE configurations.
+  - Performed a deep cleanup of the workspace, removing legacy deployment tools and temporary analysis reports.
 
-### Build System
-- Standardized the Go backend build pipeline to strictly enforce `amd64` architecture.
-- Added explicit directory guards in `scripts/ci/build_go.sh` to support clean-slate builds in containerized environments.
-- Updated documentation to reflect the latest stability improvements in the build process.
+### Go Backend (ThroneCore)
+- **Breaking API Compatibility:** Migrated routing rule logic to support `sing-box v1.11+`. Updated outbound tag resolution to use the new `DefaultOptions.ActionOptions.Outbound` hierarchy.
+- **Code Quality:** Resolved variable shadowing and redeclaration issues in the core service initialization logic.
+- **Build Enforcement:** Standardized the Go build pipeline to strictly enforce `amd64` architecture for both Linux and Windows targets.
 
 ## [0.0.0.1] - 2026-04-16
 ### Initial Architecture Overhaul
