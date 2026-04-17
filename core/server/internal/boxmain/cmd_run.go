@@ -68,9 +68,9 @@ func validateOutbounds(options *option.Options) {
 	// Default fallback: direct
 	for i := range options.Route.Rules {
 		rule := &options.Route.Rules[i]
-		if rule.Outbound != "" && !outboundTags[rule.Outbound] {
-			log.Warn("Outbound tag '%s' missing, falling back to 'direct'", rule.Outbound)
-			rule.Outbound = "direct"
+		if rule.DefaultOptions.Outbound != "" && !outboundTags[rule.DefaultOptions.Outbound] {
+			log.Warn("Outbound tag '%s' missing, falling back to 'direct'", rule.DefaultOptions.Outbound)
+			rule.DefaultOptions.Outbound = "direct"
 		}
 	}
 }
@@ -100,7 +100,7 @@ func Create(configContent []byte, disableDNS bool) (*boxbox.Box, context.CancelF
 		}
 		options.Log.DisableColor = true
 	}
-	ctx, cancel := context.WithCancel(globalCtx)
+	ctx, cancel = context.WithCancel(globalCtx)
 	instance, err := boxbox.New(boxbox.Options{
 		Context: ctx,
 		Options: *options,
