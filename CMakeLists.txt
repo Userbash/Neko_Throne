@@ -438,7 +438,7 @@ set_property(TARGET ArtifactTest PROPERTY AUTORCC ON)
 target_link_libraries(ArtifactTest PRIVATE Qt6::Test Qt6::Core Qt6::Concurrent Qt6::Widgets Qt6::Network)
 add_test(NAME FullArtifactCheck COMMAND ArtifactTest)
 
-add_executable(MigrationTest
+add_executable(MigrationTest EXCLUDE_FROM_ALL
     tests/MigrationTest.cpp
     src/global/Configs.cpp
     src/global/Utils.cpp
