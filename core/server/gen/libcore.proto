@@ -47,6 +47,7 @@ message LoadConfigReq {
   optional string xray_config = 10 [default = ""];
   optional string tun_ipv4_cidr = 11 [default = ""];
   optional bool disable_dns_routing = 12 [default = false];
+  optional bool block_ipv6 = 13 [default = false];
 }
 
 message URLTestResp {

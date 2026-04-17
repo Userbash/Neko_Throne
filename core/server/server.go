@@ -212,7 +212,7 @@ func (s *server) Start(ctx context.Context, in *gen.LoadConfigReq) (out *gen.Err
 		needUnsetDNS = true
 	}
 
-	if in.GetBlock_Ipv6() && runtime.GOOS == "linux" {
+	if in.GetBlockIpv6() && runtime.GOOS == "linux" {
 		blockIPv6Leaks()
 	}
 
