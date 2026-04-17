@@ -460,7 +460,12 @@ jobs:
       - name: 📊 Статистика ccache
         if: always()
         shell: bash
-        run: ccache -s
+        run: |
+          if command -v ccache &>/dev/null; then
+            ccache -s
+          else
+            echo "ccache not found, skipping stats."
+          fi
 
       - name: 📝 Итог сборки
         if: always()
