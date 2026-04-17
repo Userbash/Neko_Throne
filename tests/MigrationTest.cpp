@@ -4,7 +4,6 @@
 #include <QFile>
 #include <QDir>
 #include "include/dataStore/ProxyEntity.hpp"
-#include "include/dataStore/Database.hpp"
 
 class MigrationTest : public QObject {
     Q_OBJECT
