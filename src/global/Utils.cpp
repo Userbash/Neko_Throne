@@ -96,6 +96,17 @@ quint64 GetRandomUint64() {
     return dist(mt);
 }
 
+QString GenRandomLoopback() {
+#ifdef Q_OS_MACOS
+    return "127.0.0.1";
+#else
+    std::random_device rd;
+    std::mt19937 mt(rd());
+    std::uniform_int_distribution<int> octet(1, 254);
+    return QString("127.%1.%2.%3").arg(octet(mt)).arg(octet(mt)).arg(octet(mt));
+#endif
+}
+
 // QString >> QJson
 QJsonObject QString2QJsonObject(const QString &jsonString) {
     QJsonDocument jsonDocument = QJsonDocument::fromJson(jsonString.toUtf8());

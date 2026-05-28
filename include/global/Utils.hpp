@@ -109,6 +109,13 @@ QString GetRandomString(int randomStringLength);
 
 quint64 GetRandomUint64();
 
+// Random 127.x.y.z address from the loopback /8. Used to give each internal
+// sing-box <-> xray socks bridge a unique destination so concurrent
+// connections don't share one ephemeral-port pool. On macOS only 127.0.0.1
+// is bound to lo0 by default (other /8 addresses need an `ifconfig alias`),
+// so this falls back to 127.0.0.1 there.
+QString GenRandomLoopback();
+
 // JSON
 
 class QJsonObject;

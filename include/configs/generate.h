@@ -1,25 +1,17 @@
 #pragma once
 #include <QJsonArray>
 #include <QJsonObject>
-#include <include/dataStore/ProxyEntity.hpp>
-#include <include/stats/traffic/TrafficData.hpp>
+
+#include "include/database/entities/Profile.h"
 
 namespace Configs
 {
-    enum OSType
-    {
-        Unknown = 0,
-        Linux = 1,
-        Windows = 2,
-    };
-
     class ExtraCoreData
     {
         public:
         QString path;
         QString args;
         QString config;
-        QString configDir;
         bool noLog;
     };
 
@@ -32,6 +24,12 @@ namespace Configs
         QJsonArray directSuffixes;
         QJsonArray directKeywords;
         QJsonArray directRegexes;
+        bool needProxyDnsRules = false;
+        QJsonArray proxyDomains;
+        QJsonArray proxyRuleSets;
+        QJsonArray proxySuffixes;
+        QJsonArray proxyKeywords;
+        QJsonArray proxyRegexes;
     };
 
     class HijackDeps
@@ -54,12 +52,20 @@ namespace Configs
     {
         public:
         int defaultOutboundID;
-        QList<int> neededOutbounds;
+        QList<int> neededOutbounds;       // kept for compatibility but no longer consumed
         QStringList neededRuleSets;
         std::map<int, QString> outboundMap;
-        // Each entry is one routing outbound group.
-        // Single profile -> [[id]]. Chain -> [[outerHop, ..., innerHop]] (reversed, matching existing chain build order).
-        QList<QList<int>> routeOutboundGroups;
+        // One routing outbound group. hopIDs is the list of profile IDs to
+        // build outbounds for: single profile -> [id], chain -> [outerHop,
+        // ..., innerHop] (reversed, matching existing chain build order).
+        // chainWrapper is set when the route rule's referenced outbound was a
+        // chain, so traffic accounting can also credit the wrapper (which
+        // isn't in hopIDs); nullptr otherwise.
+        struct RouteOutboundGroup {
+            QList<int> hopIDs;
+            std::shared_ptr<Profile> chainWrapper;
+        };
+        QList<RouteOutboundGroup> routeOutboundGroups;
     };
 
     class BuildPrerequisities
@@ -71,15 +77,46 @@ namespace Configs
         std::shared_ptr<RoutingDeps> routingDeps = std::make_shared<RoutingDeps>();
     };
 
+    // One per built chain (main chain + each route outbound group). watchTag is
+    // the sing-box outbound tag whose stats represent total bytes for the chain
+    // — it's the matched outbound of a routing rule. For chains that re-enter
+    // sing-box after an xray hop (e.g. [sing,xray,sing]) there are two such
+    // outbounds; we pick the last one in build order so we read traffic at the
+    // egress side. profiles is every user-visible hop to credit with the bytes,
+    // synthetic socks bridges excluded.
+    struct TrafficChainGroup {
+        QString watchTag;
+        QList<std::shared_ptr<Profile>> profiles;
+    };
+
     class BuildConfigResult {
     public:
         QString error;
         QJsonObject coreConfig;
+        QString tunIPv4CIDR;
         bool isXrayNeeded = false;
         QJsonObject xrayConfig;
         std::shared_ptr<ExtraCoreData> extraCoreData = std::make_shared<ExtraCoreData>();
 
-        QList<std::shared_ptr<Stats::TrafficData>> outboundStats;
+        QList<TrafficChainGroup> chainGroups;
+    };
+
+    struct coreBridgeConfig {
+        bool needed = false;
+        int port = -1;
+        QString auth;
+        // When true the sing-box socks inbound for this bridge routes to
+        // `direct` rather than re-entering a sing-box chain hop. Used when
+        // xray is the final egress under TUN, where sing-box's process_path
+        // rule fails to short-circuit xray's outbound and traffic loops back
+        // through TUN. Detouring xray's egress into sing-box `direct` (which
+        // honors auto_detect_interface) breaks the loop.
+        bool loopbackProtect = false;
+        // Loopback host (127.x.y.z) used as both listen and dial address for
+        // this bridge. Randomizing per-bridge spreads ephemeral source-port
+        // allocation across (dst_ip, dst_port) buckets, so a single bridge
+        // under load doesn't starve every other bridge of source ports.
+        QString host = "127.0.0.1";
     };
 
     class BuildSingBoxConfigContext
@@ -89,28 +126,33 @@ namespace Configs
         bool forExport = false;
         bool tunEnabled = false;
         bool isResolvedUsed = false;
-        bool needsXrayDnsProxy = false;
-        std::shared_ptr<ProxyEntity> ent = std::make_shared<ProxyEntity>(nullptr, nullptr, nullptr);
+        bool singToXrayTransitioned = false;
+        bool xrayToSingTransitioned = false;
+        std::shared_ptr<Profile> ent = std::make_shared<Profile>(nullptr, nullptr);
         std::shared_ptr<BuildPrerequisities> buildPrerequisities = std::make_shared<BuildPrerequisities>();
-        OSType os;
+        osType os;
 
         QString error;
         QStringList warnings;
         QJsonArray outbounds;
         QJsonArray endpoints;
-        QList<std::pair<int, QJsonObject>> xrayOutbounds; // (inbound port, object)
+        QJsonArray xrayOutbounds;
+        QList<QString> xrayIngressTags;
+        QList<QString> singIngressTags;
+        QList<coreBridgeConfig> singToXrayBridges;
+        QList<coreBridgeConfig> xrayToSingBridges;
         std::shared_ptr<BuildConfigResult> buildConfigResult = std::make_shared<BuildConfigResult>();
     };
 
     inline QString get_jsdelivr_link(QString link)
     {
-        if(dataStore->routing->ruleset_mirror == Mirrors::GITHUB)
+        if(Configs::dataManager->settingsRepo->ruleset_mirror == Mirrors::GITHUB)
             return link;
         if(auto url = QUrl(link); url.isValid() && url.host() == "raw.githubusercontent.com")
         {
             QStringList list = url.path().split('/');
             QString result;
-            switch(dataStore->routing->ruleset_mirror) {
+            switch(Configs::dataManager->settingsRepo->ruleset_mirror) {
             case Mirrors::GCORE: result = "https://gcore.jsdelivr.net/gh"; break;
             case Mirrors::QUANTIL: result = "https://quantil.jsdelivr.net/gh"; break;
             case Mirrors::FASTLY: result = "https://fastly.jsdelivr.net/gh"; break;
@@ -119,7 +161,7 @@ namespace Configs
             }
 
             int index = 0;
-            for (const QString &item : list)
+            foreach(QString item, list)
             {
                 if(!item.isEmpty())
                 {
@@ -134,6 +176,9 @@ namespace Configs
         }
         return link;
     }
+
+    constexpr int warpProfileID = -2408;
+    std::shared_ptr<Profile> getWarpProfile();
 
     void CalculatePrerequisities(std::shared_ptr<BuildSingBoxConfigContext> &ctx);
 
@@ -155,7 +200,7 @@ namespace Configs
 
     void buildXrayConfig(std::shared_ptr<BuildSingBoxConfigContext> &ctx);
 
-    std::shared_ptr<BuildConfigResult> BuildSingBoxConfig(const std::shared_ptr<ProxyEntity> &ent);
+    std::shared_ptr<BuildConfigResult> BuildSingBoxConfig(const std::shared_ptr<Profile> &ent);
 
     class BuildTestConfigResult {
     public:
@@ -168,7 +213,7 @@ namespace Configs
         QStringList outboundTags;
     };
 
-    bool IsValid(const std::shared_ptr<ProxyEntity> &ent);
+    bool IsValid(const std::shared_ptr<Profile> &ent);
 
-    std::shared_ptr<BuildTestConfigResult> BuildTestConfig(const QList<std::shared_ptr<ProxyEntity> > &profiles);
+    std::shared_ptr<BuildTestConfigResult> BuildTestConfig(const QList<std::shared_ptr<Profile> > &profiles);
 }
