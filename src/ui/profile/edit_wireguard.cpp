@@ -8,7 +8,7 @@ EditWireguard::~EditWireguard() {
     delete ui;
 }
 
-void EditWireguard::onStart(std::shared_ptr<Configs::ProxyEntity> _ent) {
+void EditWireguard::onStart(std::shared_ptr<Configs::Profile> _ent) {
     this->ent = _ent;
     auto outbound = this->ent->Wireguard();
 
@@ -27,15 +27,22 @@ void EditWireguard::onStart(std::shared_ptr<Configs::ProxyEntity> _ent) {
     ui->workers->setText(Int2String(outbound->worker_count));
 
     ui->enable_amnezia->setChecked(outbound->enable_amnezia);
-    ui->junk_packet_count->setText(Int2String(outbound->junk_packet_count));
-    ui->junk_packet_min_size->setText(Int2String(outbound->junk_packet_min_size));
-    ui->junk_packet_max_size->setText(Int2String(outbound->junk_packet_max_size));
-    ui->init_packet_junk_size->setText(Int2String(outbound->init_packet_junk_size));
-    ui->response_packet_junk_size->setText(Int2String(outbound->response_packet_junk_size));
-    ui->init_packet_magic_header->setText(Int2String(outbound->init_packet_magic_header));
-    ui->response_packet_magic_header->setText(Int2String(outbound->response_packet_magic_header));
-    ui->underload_packet_magic_header->setText(Int2String(outbound->underload_packet_magic_header));
-    ui->transport_packet_magic_header->setText(Int2String(outbound->transport_packet_magic_header));
+    ui->jc->setText(Int2String(outbound->jc));
+    ui->jmin->setText(Int2String(outbound->jmin));
+    ui->jmax->setText(Int2String(outbound->jmax));
+    ui->s1->setText(Int2String(outbound->s1));
+    ui->s2->setText(Int2String(outbound->s2));
+    ui->s3->setText(Int2String(outbound->s3));
+    ui->s4->setText(Int2String(outbound->s4));
+    ui->h1->setText(outbound->h1);
+    ui->h2->setText(outbound->h2);
+    ui->h3->setText(outbound->h3);
+    ui->h4->setText(outbound->h4);
+    ui->i1->setText(outbound->i1);
+    ui->i2->setText(outbound->i2);
+    ui->i3->setText(outbound->i3);
+    ui->i4->setText(outbound->i4);
+    ui->i5->setText(outbound->i5);
 }
 
 bool EditWireguard::onEnd() {
@@ -50,22 +57,29 @@ bool EditWireguard::onEnd() {
         if (item.trimmed().isEmpty()) continue;
         outbound->peer->reserved += item.trimmed().toInt();
     }
-    outbound->peer->persistent_keepalive = ui->persistent_keepalive->text().toInt();
+    outbound->peer->persistent_keepalive = ui->persistent_keepalive->text().trimmed().toInt();
     outbound->mtu = ui->mtu->text().toInt();
     outbound->system = ui->sys_ifc->isChecked();
     outbound->address = ui->local_addr->text().replace(" ", "").split(",");
     outbound->worker_count = ui->workers->text().toInt();
 
     outbound->enable_amnezia = ui->enable_amnezia->isChecked();
-    outbound->junk_packet_count = ui->junk_packet_count->text().toInt();
-    outbound->junk_packet_min_size = ui->junk_packet_min_size->text().toInt();
-    outbound->junk_packet_max_size = ui->junk_packet_max_size->text().toInt();
-    outbound->init_packet_junk_size = ui->init_packet_junk_size->text().toInt();
-    outbound->response_packet_junk_size = ui->response_packet_junk_size->text().toInt();
-    outbound->init_packet_magic_header = ui->init_packet_magic_header->text().toInt();
-    outbound->response_packet_magic_header = ui->response_packet_magic_header->text().toInt();
-    outbound->underload_packet_magic_header = ui->underload_packet_magic_header->text().toInt();
-    outbound->transport_packet_magic_header = ui->transport_packet_magic_header->text().toInt();
+    outbound->jc = ui->jc->text().toInt();
+    outbound->jmin = ui->jmin->text().toInt();
+    outbound->jmax = ui->jmax->text().toInt();
+    outbound->s1 = ui->s1->text().toInt();
+    outbound->s2 = ui->s2->text().toInt();
+    outbound->s3 = ui->s3->text().toInt();
+    outbound->s4 = ui->s4->text().toInt();
+    outbound->h1 = ui->h1->text();
+    outbound->h2 = ui->h2->text();
+    outbound->h3 = ui->h3->text();
+    outbound->h4 = ui->h4->text();
+    outbound->i1 = ui->i1->text();
+    outbound->i2 = ui->i2->text();
+    outbound->i3 = ui->i3->text();
+    outbound->i4 = ui->i4->text();
+    outbound->i5 = ui->i5->text();
 
     return true;
 }

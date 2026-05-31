@@ -13,16 +13,6 @@ namespace Configs
         QList<int> reserved;
         int persistent_keepalive = 0;
 
-        Peer()
-        {
-            _add(new configItem("address", &address, string));
-            _add(new configItem("port", &port, integer));
-            _add(new configItem("public_key", &public_key, itemType::string));
-            _add(new configItem("pre_shared_key", &pre_shared_key, itemType::string));
-            _add(new configItem("reserved", &reserved, itemType::integerList));
-            _add(new configItem("persistent_keepalive", &persistent_keepalive, itemType::integer));
-        }
-
         // baseConfig overrides
         bool ParseFromLink(const QString& link) override;
         bool ParseFromJson(const QJsonObject& object) override;
@@ -42,39 +32,27 @@ namespace Configs
         int worker_count = 0;
         QString udp_timeout;
 
-        // Amnezia options
+        // Amnezia (AmneziaWG) options. Mirrors the amnezia_wg object of the
+        // sing-box wireguard endpoint. jc/jmin/jmax and s1-s4 are integers,
+        // h1-h4 (magic headers) and i1-i5 (signature packets) are passed
+        // through verbatim as strings.
         bool enable_amnezia = false;
-        int junk_packet_count = 0;
-        int junk_packet_min_size = 0;
-        int junk_packet_max_size = 0;
-        int init_packet_junk_size = 0;
-        int response_packet_junk_size = 0;
-        int init_packet_magic_header = 0;
-        int response_packet_magic_header = 0;
-        int underload_packet_magic_header = 0;
-        int transport_packet_magic_header = 0;
-
-        wireguard() : outbound()
-        {
-            _add(new configItem("private_key", &private_key, itemType::string));
-            _add(new configItem("peer", dynamic_cast<JsonStore *>(peer.get()), jsonStore));
-            _add(new configItem("address", &address, itemType::stringList));
-            _add(new configItem("mtu", &mtu, itemType::integer));
-            _add(new configItem("system", &system, itemType::boolean));
-            _add(new configItem("worker_count", &worker_count, itemType::integer));
-            _add(new configItem("udp_timeout", &udp_timeout, itemType::string));
-
-            _add(new configItem("enable_amnezia", &enable_amnezia, itemType::boolean));
-            _add(new configItem("junk_packet_count", &junk_packet_count, itemType::integer));
-            _add(new configItem("junk_packet_min_size", &junk_packet_min_size, itemType::integer));
-            _add(new configItem("junk_packet_max_size", &junk_packet_max_size, itemType::integer));
-            _add(new configItem("init_packet_junk_size", &init_packet_junk_size, itemType::integer));
-            _add(new configItem("response_packet_junk_size", &response_packet_junk_size, itemType::integer));
-            _add(new configItem("init_packet_magic_header", &init_packet_magic_header, itemType::integer));
-            _add(new configItem("response_packet_magic_header", &response_packet_magic_header, itemType::integer));
-            _add(new configItem("underload_packet_magic_header", &underload_packet_magic_header, itemType::integer));
-            _add(new configItem("transport_packet_magic_header", &transport_packet_magic_header, itemType::integer));
-        }
+        int jc = 0;
+        int jmin = 0;
+        int jmax = 0;
+        int s1 = 0;
+        int s2 = 0;
+        int s3 = 0;
+        int s4 = 0;
+        QString h1;
+        QString h2;
+        QString h3;
+        QString h4;
+        QString i1;
+        QString i2;
+        QString i3;
+        QString i4;
+        QString i5;
 
         // baseConfig overrides
         bool ParseFromLink(const QString& link) override;
@@ -90,6 +68,10 @@ namespace Configs
         QString DisplayAddress() override;
         QString DisplayType() override;
         bool IsEndpoint() override;
+
+        private:
+        QJsonObject AmneziaToJson();
+        void AmneziaFromJson(const QJsonObject& object);
     };
 }
 
