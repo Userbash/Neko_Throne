@@ -72,6 +72,7 @@ namespace Configs
         private:
         QJsonObject AmneziaToJson();
         void AmneziaFromJson(const QJsonObject& object);
+        void FixAddress();
     };
 }
 

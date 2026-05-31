@@ -175,6 +175,7 @@ namespace Configs {
         if (query.hasQueryItem("i3")) i3 = query.queryItemValue("i3"), enable_amnezia = true;
         if (query.hasQueryItem("i4")) i4 = query.queryItemValue("i4"), enable_amnezia = true;
         if (query.hasQueryItem("i5")) i5 = query.queryItemValue("i5"), enable_amnezia = true;
+        FixAddress();
 
         return !(private_key.isEmpty() || peer->public_key.isEmpty() || server.isEmpty());
     }
@@ -191,6 +192,7 @@ namespace Configs {
         if (object.contains("worker_count")) worker_count = object["worker_count"].toInt();
         if (object.contains("udp_timeout")) udp_timeout = object["udp_timeout"].toString();
         if (object.contains("amnezia_wg")) AmneziaFromJson(object["amnezia_wg"].toObject());
+        FixAddress();
         return true;
     }
 
@@ -359,5 +361,20 @@ namespace Configs {
         if (object.contains("i3")) i3 = object["i3"].toString();
         if (object.contains("i4")) i4 = object["i4"].toString();
         if (object.contains("i5")) i5 = object["i5"].toString();
+    }
+
+    void wireguard::FixAddress() {
+        QStringList newAddresses;
+        for (const auto& addr : address) {
+            auto trimmed = addr.trimmed();
+            if (trimmed.contains("/")) {
+                newAddresses.append(trimmed);
+                continue;
+            }
+            if (trimmed.contains(":")) trimmed += "/128";
+            else trimmed += "/32";
+            newAddresses.append(trimmed);
+        }
+        address = newAddresses;
     }
 }
