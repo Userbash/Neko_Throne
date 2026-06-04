@@ -396,7 +396,8 @@ void DialogEditProfile::typeSelected(const QString &newType) {
         ui->xray_sni->setText(xrayStream->security == "tls" ? xrayStream->TLS->serverName : xrayStream->reality->serverName);
         ui->xray_fp->setCurrentText(xrayStream->security == "tls" ? xrayStream->TLS->fingerprint : xrayStream->reality->fingerprint);
         ui->xray_alpn->setText(xrayStream->TLS->alpn.join(","));
-        ui->xray_insecure->setChecked(xrayStream->TLS->allowInsecure);
+        ui->xray_pinned_peer_cert_sha256->setText(xrayStream->TLS->pinnedPeerCertSha256);
+        ui->xray_verify_peer_cert_by_name->setText(xrayStream->TLS->verifyPeerCertByName);
         ui->xray_reality_pbk->setText(xrayStream->reality->password);
         ui->xray_reality_sid->setText(xrayStream->reality->shortId);
         ui->xray_reality_spiderx->setText(xrayStream->reality->spiderX);
@@ -570,8 +571,9 @@ bool DialogEditProfile::onEnd() {
         if (xrayStream->security == "tls") xrayStream->TLS->fingerprint = fp;
         else if (xrayStream->security == "reality") xrayStream->reality->fingerprint = fp;
 
-        xrayStream->TLS->alpn = ui->xray_alpn->text().split(",");
-        xrayStream->TLS->allowInsecure = ui->xray_insecure->isChecked();
+        xrayStream->TLS->alpn = SplitAndTrim(ui->xray_alpn->text(), ",", false);;
+        xrayStream->TLS->pinnedPeerCertSha256 = ui->xray_pinned_peer_cert_sha256->text();
+        xrayStream->TLS->verifyPeerCertByName = ui->xray_verify_peer_cert_by_name->text();
         xrayStream->reality->password = ui->xray_reality_pbk->text();
         xrayStream->reality->shortId = ui->xray_reality_sid->text();
         xrayStream->reality->spiderX = ui->xray_reality_spiderx->text();

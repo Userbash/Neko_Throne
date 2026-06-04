@@ -886,10 +886,31 @@
             <item row="0" column="1">
              <widget class="QLineEdit" name="xray_alpn"/>
             </item>
-            <item row="1" column="0" colspan="2">
-             <widget class="QCheckBox" name="xray_insecure">
+            <item row="1" column="0">
+             <widget class="QLabel" name="label_xray_pcs">
               <property name="text">
-               <string>Allow insecure</string>
+               <string>Pinned Cert SHA256</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QLineEdit" name="xray_pinned_peer_cert_sha256">
+              <property name="toolTip">
+               <string>pinnedPeerCertSha256: hex SHA256 of the peer certificate (comma-separated for multiple). Replacement for allowInsecure.</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="label_xray_vcn">
+              <property name="text">
+               <string>Verify Cert Name</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="1">
+             <widget class="QLineEdit" name="xray_verify_peer_cert_by_name">
+              <property name="toolTip">
+               <string>verifyPeerCertByName: verify the peer certificate against this name instead of the SNI.</string>
               </property>
              </widget>
             </item>
