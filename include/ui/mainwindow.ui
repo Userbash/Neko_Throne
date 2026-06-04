@@ -17,7 +17,7 @@
    </size>
   </property>
   <property name="windowTitle">
-   <string notr="true">Neko Throne</string>
+   <string notr="true">Throne</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout_3" stretch="0,0,0">
@@ -25,6 +25,25 @@
      <layout class="QHBoxLayout" name="horizontalLayout_2">
       <item>
        <widget class="QToolButton" name="toolButton_program">
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QToolButton {
+    padding-left: 8px;
+    padding-right: 8px;
+}
+
+QToolButton::menu-indicator {
+    subcontrol-origin: border;
+    subcontrol-position: bottom right;
+    right: 2px;
+    bottom: 3px;
+}</string>
+        </property>
         <property name="text">
          <string>Application</string>
         </property>
@@ -47,6 +66,25 @@
       </item>
       <item>
        <widget class="QToolButton" name="toolButton_preferences">
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QToolButton {
+    padding-left: 8px;
+    padding-right: 8px;
+}
+
+QToolButton::menu-indicator {
+    subcontrol-origin: border;
+    subcontrol-position: bottom right;
+    right: 2px;
+    bottom: 3px;
+}</string>
+        </property>
         <property name="text">
          <string>Settings</string>
         </property>
@@ -69,6 +107,25 @@
       </item>
       <item>
        <widget class="QToolButton" name="toolButton_server">
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QToolButton {
+    padding-left: 8px;
+    padding-right: 8px;
+}
+
+QToolButton::menu-indicator {
+    subcontrol-origin: border;
+    subcontrol-position: bottom right;
+    right: 2px;
+    bottom: 3px;
+}</string>
+        </property>
         <property name="text">
          <string>Profiles</string>
         </property>
@@ -91,6 +148,25 @@
       </item>
       <item>
        <widget class="QToolButton" name="toolButton_routing">
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QToolButton {
+    padding-left: 8px;
+    padding-right: 8px;
+}
+
+QToolButton::menu-indicator {
+    subcontrol-origin: border;
+    subcontrol-position: bottom right;
+    right: 2px;
+    bottom: 3px;
+}</string>
+        </property>
         <property name="text">
          <string>Routing</string>
         </property>
@@ -113,6 +189,25 @@
       </item>
       <item>
        <widget class="QToolButton" name="toolButton_update">
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QToolButton {
+    padding-left: 8px;
+    padding-right: 8px;
+}
+
+QToolButton::menu-indicator {
+    subcontrol-origin: border;
+    subcontrol-position: bottom right;
+    right: 2px;
+    bottom: 3px;
+}</string>
+        </property>
         <property name="text">
          <string>Update</string>
         </property>
@@ -175,6 +270,12 @@
           <verstretch>0</verstretch>
          </sizepolicy>
         </property>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>0</height>
+         </size>
+        </property>
         <property name="mouseTracking">
          <bool>false</bool>
         </property>
@@ -204,9 +305,6 @@
         </property>
        </widget>
       </item>
-      <item>
-       <widget class="QLineEdit" name="search_input"/>
-      </item>
      </layout>
     </item>
     <item>
@@ -215,6 +313,28 @@
        <enum>Qt::Orientation::Vertical</enum>
       </property>
       <widget class="QTabWidget" name="tabWidget">
+       <property name="styleSheet">
+        <string notr="true">QTabWidget::tab-bar {
+    left: 2px;
+}
+
+QTabBar {
+    background: transparent;
+    qproperty-drawBase: 0;
+}
+
+QTabBar::tab {
+    border: 1px solid #555555;
+
+    border-radius: 4px;
+    padding: 2px 4px;
+    margin-right: 1px;
+}
+
+QTabBar::tab:selected {
+    border: 1px solid palette(highlight);
+}</string>
+       </property>
        <property name="currentIndex">
         <number>0</number>
        </property>
@@ -245,7 +365,7 @@
           <number>0</number>
          </property>
          <item row="0" column="0">
-          <widget class="MyTableWidget" name="proxyListTable">
+          <widget class="ProfilesTableView" name="profilesTableView">
            <property name="contextMenuPolicy">
             <enum>Qt::ContextMenuPolicy::CustomContextMenu</enum>
            </property>
@@ -276,31 +396,6 @@
            <attribute name="verticalHeaderDefaultSectionSize">
             <number>30</number>
            </attribute>
-           <column>
-            <property name="text">
-             <string>Type</string>
-            </property>
-           </column>
-           <column>
-            <property name="text">
-             <string>Address</string>
-            </property>
-           </column>
-           <column>
-            <property name="text">
-             <string>Name</string>
-            </property>
-           </column>
-           <column>
-            <property name="text">
-             <string>Test Result</string>
-            </property>
-           </column>
-           <column>
-            <property name="text">
-             <string>Traffic</string>
-            </property>
-           </column>
           </widget>
          </item>
         </layout>
@@ -330,6 +425,28 @@
             <widget class="QTabWidget" name="stats_widget">
              <property name="autoFillBackground">
               <bool>true</bool>
+             </property>
+             <property name="styleSheet">
+              <string notr="true">QTabWidget::tab-bar {
+    left: 2px;
+}
+
+QTabBar {
+    background: transparent;
+    qproperty-drawBase: 0;
+}
+
+QTabBar::tab {
+    border: 1px solid #555555;
+
+    border-radius: 4px;
+    padding: 2px 4px;
+    margin-right: 1px;
+}
+
+QTabBar::tab:selected {
+    border: 1px solid palette(highlight);
+}</string>
              </property>
              <property name="tabPosition">
               <enum>QTabWidget::TabPosition::North</enum>
@@ -512,22 +629,6 @@
        </widget>
       </item>
       <item>
-       <spacer name="horizontalSpacer_2">
-        <property name="orientation">
-         <enum>Qt::Orientation::Horizontal</enum>
-        </property>
-        <property name="sizeType">
-         <enum>QSizePolicy::Policy::Maximum</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>0</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-      <item>
        <widget class="QLabel" name="label_inbound">
         <property name="text">
          <string/>
@@ -608,9 +709,11 @@
      </property>
      <addaction name="menu_qr"/>
      <addaction name="menu_export_config"/>
+     <addaction name="actionExport_Xray_config"/>
      <addaction name="separator"/>
      <addaction name="menu_copy_links"/>
      <addaction name="menu_copy_links_nkr"/>
+     <addaction name="actionCopy_Test_Result"/>
     </widget>
     <addaction name="menu_add_from_input"/>
     <addaction name="menu_add_from_clipboard"/>
@@ -626,8 +729,10 @@
     <addaction name="separator"/>
     <addaction name="actionUrl_Test_Selected"/>
     <addaction name="menu_resolve_selected"/>
+    <addaction name="actionClear_Test_Result"/>
     <addaction name="actionSpeedtest_Current"/>
     <addaction name="actionSpeedtest_Selected"/>
+    <addaction name="actionResolve_Selected_Out_IP"/>
    </widget>
    <widget class="QMenu" name="menuHidden_menu">
     <property name="title">
@@ -641,6 +746,8 @@
     <addaction name="menu_clear_test_result"/>
     <addaction name="menu_delete_repeat"/>
     <addaction name="actionSpeedtest_Group"/>
+    <addaction name="actionResolve_Out_IP"/>
+    <addaction name="actionRefresh_Column_Widths"/>
    </widget>
    <widget class="QMenu" name="menuRouting_Menu">
     <property name="title">
@@ -657,9 +764,6 @@
    <property name="text">
     <string>Exit</string>
    </property>
-   <property name="shortcut">
-    <string notr="true">Ctrl+Shift+W</string>
-   </property>
   </action>
   <action name="actionShow_window">
    <property name="text">
@@ -669,9 +773,6 @@
   <action name="menu_basic_settings">
    <property name="text">
     <string>Basic Settings</string>
-   </property>
-   <property name="shortcut">
-    <string notr="true">Ctrl+,</string>
    </property>
   </action>
   <action name="menu_add_from_input">
@@ -685,9 +786,6 @@
   <action name="menu_manage_groups">
    <property name="text">
     <string>Groups</string>
-   </property>
-   <property name="shortcut">
-    <string notr="true">Ctrl+G</string>
    </property>
   </action>
   <action name="menu_start">
@@ -709,9 +807,6 @@
   <action name="menu_routing_settings">
    <property name="text">
     <string>Routing Settings</string>
-   </property>
-   <property name="shortcut">
-    <string notr="true">Ctrl+Shift+O</string>
    </property>
   </action>
   <action name="menu_add_from_clipboard">
@@ -779,7 +874,7 @@
   </action>
   <action name="menu_export_config">
    <property name="text">
-    <string>Export %1 config</string>
+    <string>Export Sing-box config</string>
    </property>
    <property name="shortcut">
     <string notr="true">Ctrl+E</string>
@@ -885,9 +980,6 @@
    <property name="text">
     <string>Hotkey Settings</string>
    </property>
-   <property name="shortcut">
-    <string notr="true">Ctrl+K</string>
-   </property>
   </action>
   <action name="menu_select_all">
    <property name="text">
@@ -968,24 +1060,15 @@
    <property name="text">
     <string>Tun Settings</string>
    </property>
-   <property name="shortcut">
-    <string notr="true">Ctrl+T</string>
-   </property>
   </action>
   <action name="actionRestart_Program">
    <property name="text">
     <string>Restart Program</string>
    </property>
-   <property name="shortcut">
-    <string notr="true">Ctrl+F5</string>
-   </property>
   </action>
   <action name="menu_open_config_folder">
    <property name="text">
     <string>Open Config Folder</string>
-   </property>
-   <property name="shortcut">
-    <string notr="true">Ctrl+Shift+E</string>
    </property>
   </action>
   <action name="actionfake_4">
@@ -1006,10 +1089,7 @@
   </action>
   <action name="actionRestart_Proxy">
    <property name="text">
-    <string>Restart Proxy</string>
-   </property>
-   <property name="shortcut">
-    <string notr="true">F5</string>
+    <string>Restart Core</string>
    </property>
   </action>
   <action name="menu_stop_testing">
@@ -1025,7 +1105,7 @@
     <string>Url Test Selected</string>
    </property>
    <property name="shortcut">
-    <string>Ctrl+Shift+S</string>
+    <string notr="true">Ctrl+Shift+S</string>
    </property>
    <property name="visible">
     <bool>true</bool>
@@ -1039,7 +1119,7 @@
     <string>Url Test Group</string>
    </property>
    <property name="shortcut">
-    <string>Ctrl+Shift+G</string>
+    <string notr="true">Ctrl+Shift+G</string>
    </property>
    <property name="visible">
     <bool>true</bool>
@@ -1058,7 +1138,7 @@
     <string>Remove Invalid</string>
    </property>
    <property name="shortcut">
-    <string>Ctrl+Alt+I</string>
+    <string notr="true">Ctrl+Alt+I</string>
    </property>
    <property name="menuRole">
     <enum>QAction::MenuRole::TextHeuristicRole</enum>
@@ -1109,12 +1189,42 @@
     <string notr="true">Ctrl+O</string>
    </property>
   </action>
+  <action name="actionResolve_Out_IP">
+   <property name="text">
+    <string>Resolve Out IP</string>
+   </property>
+  </action>
+  <action name="actionResolve_Selected_Out_IP">
+   <property name="text">
+    <string>Resolve Selected Out IP</string>
+   </property>
+  </action>
+  <action name="actionRefresh_Column_Widths">
+   <property name="text">
+    <string>Refresh Column Widths</string>
+   </property>
+  </action>
+  <action name="actionExport_Xray_config">
+   <property name="text">
+    <string>Export Xray config</string>
+   </property>
+  </action>
+  <action name="actionCopy_Test_Result">
+   <property name="text">
+    <string>Copy Test Result</string>
+   </property>
+  </action>
+  <action name="actionClear_Test_Result">
+   <property name="text">
+    <string>Clear Test Result</string>
+   </property>
+  </action>
  </widget>
  <customwidgets>
   <customwidget>
-   <class>MyTableWidget</class>
-   <extends>QTableWidget</extends>
-   <header>include/ui/utils/MyTableWidget.h</header>
+   <class>ProfilesTableView</class>
+   <extends>QTableView</extends>
+   <header>include/ui/utils/ProfilesTableView.h</header>
   </customwidget>
  </customwidgets>
  <resources/>
