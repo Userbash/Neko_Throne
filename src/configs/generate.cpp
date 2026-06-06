@@ -1182,9 +1182,19 @@ namespace Configs {
 
         // rules
         auto routeRules = routeChain->get_route_rules(false, routeDeps->outboundMap);
+        QJsonArray coreProcessPaths;
+        coreProcessPaths.append(FindCoreRealPath());
+        if (!ctx->buildConfigResult->extraCoreData->path.isEmpty())
+        {
+            auto extraCorePath = ctx->buildConfigResult->extraCoreData->path;
+#ifdef Q_OS_WIN
+            extraCorePath.replace("/", "\\");
+#endif
+            coreProcessPaths.append(extraCorePath);
+        }
         routeRules.prepend(QJsonObject{
             {"action", "route"},
-            {"process_path", FindCoreRealPath()},
+            {"process_path", coreProcessPaths},
             {"outbound", "direct"},
         });
         if (!ctx->forTest) {
