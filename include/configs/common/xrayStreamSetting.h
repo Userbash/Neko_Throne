@@ -4,6 +4,9 @@
 namespace Configs {
     inline QStringList XrayNetworks = {"raw", "xhttp", "ws", "httpupgrade", "grpc"};
     inline QStringList XrayXHTTPModes = {"auto", "packet-up", "stream-up", "stream-one"};
+    inline QStringList XrayXHTTPMetaPlacements = {"", "path", "cookie", "header", "query"};
+    inline QStringList XrayXHTTPUplinkDataPlacements = {"", "auto", "body", "cookie", "header"};
+    inline QStringList XrayXHTTPUplinkMethods = {"", "POST", "PUT", "PATCH", "GET"};
 
     class xrayTLS : public baseConfig {
         public:
@@ -12,13 +15,6 @@ namespace Configs {
         QString verifyPeerCertByName;
         QStringList alpn;
         QString fingerprint;
-
-        xrayTLS() {
-            _add(new configItem("serverName", &serverName, string));
-            _add(new configItem("allowInsecure", &allowInsecure, boolean));
-            _add(new configItem("alpn", &alpn, stringList));
-            _add(new configItem("fingerprint", &fingerprint, string));
-        }
 
         bool ParseFromLink(const QString& link) override;
         bool ParseFromJson(const QJsonObject& object) override;
@@ -36,15 +32,6 @@ namespace Configs {
         QString shortId;
         QString spiderX;
 
-        xrayReality() {
-            _add(new configItem("serverName", &serverName, string));
-            _add(new configItem("fingerprint", &fingerprint, string));
-            _add(new configItem("serverName", &serverName, string));
-            _add(new configItem("password", &password, string));
-            _add(new configItem("shortId", &shortId, string));
-            _add(new configItem("spiderX", &spiderX, string));
-        }
-
         bool ParseFromLink(const QString& link) override;
         bool ParseFromJson(const QJsonObject& object) override;
         bool ParseFromClash(const clash::Proxies& object) override;
@@ -59,12 +46,31 @@ namespace Configs {
         QString path;
         QString mode = "auto";
         // extra
+        QJsonObject rawExtra;
         QStringList headers;
         QString xPaddingBytes;
+        bool xPaddingObfsMode = false;
+        QString xPaddingKey;
+        QString xPaddingHeader;
+        QString xPaddingPlacement;
+        QString xPaddingMethod;
+        QString uplinkHTTPMethod;
+        QString sessionPlacement;
+        QString sessionKey;
+        QString seqPlacement;
+        QString seqKey;
+        QString uplinkDataPlacement;
+        QString uplinkDataKey;
+        QString uplinkChunkSize;
         bool noGRPCHeader = false;
-        QString scMaxEachPostBytes; // packet-up only
-        QString scMinPostsIntervalMs; // packet-up only
+        bool noSSEHeader = false;
+        QString scMaxEachPostBytes;
+        QString scMinPostsIntervalMs;
+        long long scMaxBufferedPosts;
+        QString scStreamUpServerSecs;
+        int serverMaxHeaderBytes;
         // extra/xmux
+        QJsonObject rawXmux;
         QString maxConcurrency;
         QString maxConnections;
         QString cMaxReuseTimes;
@@ -74,27 +80,10 @@ namespace Configs {
         // extra/downloadSettings
         QString downloadSettings;
 
-        xrayXHTTP() {
-            _add(new configItem("host", &host, string));
-            _add(new configItem("path", &path, string));
-            _add(new configItem("mode", &mode, string));
-            _add(new configItem("headers", &headers, stringList));
-            _add(new configItem("xPaddingBytes", &xPaddingBytes, string));
-            _add(new configItem("noGRPCHeader", &noGRPCHeader, boolean));
-            _add(new configItem("scMaxEachPostBytes", &scMaxEachPostBytes, string));
-            _add(new configItem("scMinPostsIntervalMs", &scMinPostsIntervalMs, string));
-            _add(new configItem("maxConcurrency", &maxConcurrency, string));
-            _add(new configItem("maxConnections", &maxConnections, string));
-            _add(new configItem("cMaxReuseTimes", &cMaxReuseTimes, string));
-            _add(new configItem("hMaxRequestTimes", &hMaxRequestTimes, string));
-            _add(new configItem("hMaxReusableSecs", &hMaxReusableSecs, string));
-            _add(new configItem("hKeepAlivePeriod", &hKeepAlivePeriod, integer64));
-            _add(new configItem("downloadSettings", &downloadSettings, string));
-        }
-
         bool ParseExtraJson(QString str);
         bool ParseFromLink(const QString& link) override;
         bool ParseFromJson(const QJsonObject& object) override;
+        bool ParseFromClash(const clash::Proxies& object) override;
         QString ExportToLink() override;
         QJsonObject ExportToJson() override;
         BuildResult Build() override;

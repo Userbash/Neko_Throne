@@ -12,25 +12,44 @@
 #include "include/ui/profile/edit_custom.h"
 #include "include/ui/profile/edit_extra_core.h"
 
-#include "include/configs/proxy/includes.h"
-#include "include/configs/proxy/Preset.hpp"
-
 #include "3rdparty/qv2ray/v2/ui/widgets/editors/w_JsonEditor.hpp"
 #include "include/global/GuiUtils.hpp"
 #include "include/global/Utils.hpp"
 
 #include <QInputDialog>
+#include <QLabel>
 
+#include "include/configs/common/TLS.h"
 #include "include/configs/common/utils.h"
+#include "include/configs/common/xrayStreamSetting.h"
+#include "include/database/ProfilesRepo.h"
+
+
+
 #include "include/ui/profile/edit_advanced.h"
+#include "include/ui/profile/edit_direct.h"
 #include "include/ui/profile/edit_hysteria.h"
 #include "include/ui/profile/edit_socks.h"
 #include "include/ui/profile/edit_trojan.h"
 #include "include/ui/profile/edit_tuic.h"
+#include "include/ui/profile/edit_juicity.h"
+#include "include/ui/profile/edit_trusttunnel.h"
+#include "include/ui/profile/edit_naive.h"
+#include "include/ui/profile/edit_shadowtls.h"
 #include "include/ui/profile/edit_xrayvless.h"
 
-#define ADJUST_SIZE runOnThread([=,this] { adjustSize(); adjustPosition(mainwindow); }, this);
-#define LOAD_TYPE(a) do { auto ent = Configs::ProfileManager::NewProxyEntity(a); if (ent && ent->outbound) ui->type->addItem(ent->outbound->DisplayType(), a); } while(0)
+#define LOAD_TYPE(a) ui->type->addItem(Configs::dataManager->profilesRepo->NewProfile(a)->outbound->DisplayType(), a);
+
+namespace {
+constexpr int kXrayXHTTPNetworkMinWidth = 760;
+}
+
+void DialogEditProfile::queueRefreshDialogLayout() {
+    runOnThread([=,this] {
+        adjustSize();
+        adjustPosition(mainwindow);
+    }, this);
+}
 
 void DialogEditProfile::toggleSingboxWidgets(bool show) {
     ui->stream_box->setVisible(show);
@@ -39,20 +58,33 @@ void DialogEditProfile::toggleSingboxWidgets(bool show) {
 
 void DialogEditProfile::toggleXrayWidgets(bool show) {
     ui->xray_settings_box->setVisible(show);
-    ui->xray_widget->setVisible(show);
+    const auto hasVisibleXrayDetails = !ui->xray_security_box->isHidden() || !ui->xray_network_box->isHidden();
+    ui->xray_widget->setVisible(show && hasVisibleXrayDetails);
 }
 
 DialogEditProfile::DialogEditProfile(const QString &_type, int profileOrGroupId, QWidget *parent)
     : QDialog(parent), ui(new Ui::DialogEditProfile) {
     // setup UI
     ui->setupUi(this);
+    auto setXrayXHTTPNetworkVisible = [=,this](bool visible) {
+        ui->xray_network_scroll->setMinimumWidth(visible ? kXrayXHTTPNetworkMinWidth : 0);
+        ui->xray_xhttp_box->setVisible(visible);
+    };
+    ui->dialog_layout->setStretch(0, 0);
+    ui->dialog_layout->setStretch(1, 1);
+    ui->dialog_layout->setStretch(2, 1);
     ui->dialog_layout->setAlignment(ui->left, Qt::AlignTop);
+    ui->left->setAlignment(Qt::AlignTop);
+    ui->right_layout->setAlignment(Qt::AlignTop);
+    ui->verticalLayout_5->setAlignment(Qt::AlignTop);
+    ui->verticalLayout_8->setAlignment(Qt::AlignTop);
 
     // Xray init
     ui->xray_security->addItems({"", "tls", "reality"});
     ui->xray_network->addItems(Configs::XrayNetworks);
     ui->xray_fp->addItems(Configs::tlsFingerprints);
-    ui->xray_mode->addItems(Configs::XrayXHTTPModes);
+    setupXrayXHTTPControls();
+    ui->xray_ed_length->setValidator(new QIntValidator(0, 8192));
     toggleXrayWidgets(false);
 
     // network changed
@@ -114,13 +146,13 @@ DialogEditProfile::DialogEditProfile(const QString &_type, int profileOrGroupId,
             ui->ws_early_data_name->setVisible(false);
             ui->ws_early_data_name_l->setVisible(false);
         }
-        if (!ui->utlsFingerprint->count()) ui->utlsFingerprint->addItems(Preset::SingBox::UtlsFingerPrint);
+        if (!ui->utlsFingerprint->count()) ui->utlsFingerprint->addItems(Configs::tlsFingerprints);
         int networkBoxVisible = 0;
         for (auto label: ui->network_box->findChildren<QLabel *>()) {
             if (!label->isHidden()) networkBoxVisible++;
         }
         ui->network_box->setVisible(networkBoxVisible);
-        ADJUST_SIZE
+        queueRefreshDialogLayout();
     });
     ui->network->removeItem(0);
 
@@ -133,14 +165,14 @@ DialogEditProfile::DialogEditProfile(const QString &_type, int profileOrGroupId,
             ui->security_box->setVisible(false);
             ui->tls_camouflage_box->setVisible(false);
         }
-        ADJUST_SIZE
+        queueRefreshDialogLayout();
     });
     emit ui->security->currentTextChanged(ui->security->currentText());
 
     // for fragment
-    connect(ui->tls_frag, &QCheckBox::checkStateChanged, this, [=,this](Qt::CheckState state)
+    connect(ui->tls_frag, &QCheckBox::stateChanged, this, [=,this](bool state)
     {
-        ui->tls_frag_fall_delay->setEnabled(state == Qt::Checked);
+        ui->tls_frag_fall_delay->setEnabled(state);
     });
 
     // mux setting changed
@@ -160,19 +192,50 @@ DialogEditProfile::DialogEditProfile(const QString &_type, int profileOrGroupId,
     });
 
     // Xray
+    connect(ui->xray_mode, &QComboBox::currentTextChanged, this, [=,this](const QString &) {
+        updateXrayXHTTPControls();
+        queueRefreshDialogLayout();
+    });
+    connect(ui->xray_xpadding_obfs_mode, &QCheckBox::toggled, this, [=,this](bool) {
+        updateXrayXHTTPControls();
+        queueRefreshDialogLayout();
+    });
     ui->xray_network_box->hide();
     connect(ui->xray_network, &QComboBox::currentTextChanged, this, [=,this](const QString &txt) {
-       if (txt == "raw") {
-           ui->xray_network_box->setVisible(false);
-           if (ui->xray_security_box->isHidden()) ui->xray_widget->hide();
-           ui->xray_downloadsettings_edit->setVisible(false);
-       }
-       else {
-           ui->xray_widget->show();
-           ui->xray_network_box->setVisible(true);
-           ui->xray_downloadsettings_edit->setVisible(txt == "xhttp");
-       }
-        ADJUST_SIZE
+        if (txt == "raw") {
+            ui->xray_network_box->setVisible(false);
+            if (ui->xray_security_box->isHidden()) ui->xray_widget->hide();
+        }
+        else {
+            ui->xray_widget->show();
+            ui->xray_network_box->setVisible(true);
+            if (txt == "xhttp") {
+                setXrayXHTTPNetworkVisible(true);
+                ui->xray_ed_label->setVisible(false);
+                ui->xray_ed_length->setVisible(false);
+                ui->xray_headers_l->setVisible(true);
+                ui->xray_headers->setVisible(true);
+                ui->xray_multi_mode->setVisible(false);
+                updateXrayXHTTPControls();
+            } else {
+                setXrayXHTTPNetworkVisible(false);
+                if (txt == "grpc") {
+                    ui->xray_ed_label->setVisible(false);
+                    ui->xray_ed_length->setVisible(false);
+                    ui->xray_headers_l->setVisible(false);
+                    ui->xray_headers->setVisible(false);
+                    ui->xray_multi_mode->setVisible(true);
+                } else {
+                    ui->xray_ed_label->setVisible(true);
+                    ui->xray_ed_length->setVisible(true);
+                    ui->xray_headers_l->setVisible(true);
+                    ui->xray_headers->setVisible(true);
+                    ui->xray_multi_mode->setVisible(false);
+                }
+            }
+        }
+        updateXrayCommons(txt);
+        queueRefreshDialogLayout();
     });
 
     ui->xray_security_box->hide();
@@ -192,7 +255,7 @@ DialogEditProfile::DialogEditProfile(const QString &_type, int profileOrGroupId,
             ui->xray_tls_only->setVisible(false);
             ui->xray_reality_box->setVisible(true);
         }
-        ADJUST_SIZE
+        queueRefreshDialogLayout();
     });
 
     newEnt = _type != "";
@@ -201,30 +264,37 @@ DialogEditProfile::DialogEditProfile(const QString &_type, int profileOrGroupId,
         this->type = _type;
 
         // load type to combo box
-        LOAD_TYPE("socks");
-        LOAD_TYPE("http");
-        LOAD_TYPE("shadowsocks");
-        LOAD_TYPE("trojan");
-        LOAD_TYPE("vmess");
-        LOAD_TYPE("vless");
+        LOAD_TYPE("socks")
+        LOAD_TYPE("http")
+        LOAD_TYPE("shadowsocks")
+        LOAD_TYPE("trojan")
+        LOAD_TYPE("vmess")
+        LOAD_TYPE("vless")
         ui->type->addItem("VLESS (Xray)", "xrayvless");
-        LOAD_TYPE("hysteria");
-        LOAD_TYPE("tuic");
-        LOAD_TYPE("anytls");
-        LOAD_TYPE("wireguard");
-        LOAD_TYPE("tailscale");
-        LOAD_TYPE("ssh");
-        ui->type->addItem(tr("Custom (%1 outbound)").arg(software_core_name), "outbound");
-        ui->type->addItem(tr("Custom (%1 config)").arg(software_core_name), "fullconfig");
+        LOAD_TYPE("hysteria")
+        LOAD_TYPE("tuic")
+        LOAD_TYPE("juicity")
+        LOAD_TYPE("naive")
+        LOAD_TYPE("trusttunnel")
+        LOAD_TYPE("anytls")
+        LOAD_TYPE("shadowtls")
+        LOAD_TYPE("wireguard")
+        LOAD_TYPE("tailscale")
+        LOAD_TYPE("ssh")
+        LOAD_TYPE("direct")
+        ui->type->addItem(tr("Custom (%1 outbound)").arg(software_core_name), Configs::Custom::CustomOutbound);
+        ui->type->addItem(tr("Custom (%1 config)").arg(software_core_name), Configs::Custom::CustomFullConfig);
+        ui->type->addItem(tr("Custom (Xray outbound)"), Configs::Custom::CustomXrayOutbound);
+        ui->type->addItem(tr("Custom (Xray config)"), Configs::Custom::CustomXrayFullConfig);
         ui->type->addItem(tr("Extra Core"), "extracore");
-        LOAD_TYPE("chain");
+        LOAD_TYPE("chain")
 
         // type changed
         connect(ui->type, &QComboBox::currentIndexChanged, this, [=,this](int index) {
             typeSelected(ui->type->itemData(index).toString());
         });
     } else {
-        this->ent = Configs::profileManager->GetProfile(profileOrGroupId);
+        this->ent = Configs::dataManager->profilesRepo->GetProfile(profileOrGroupId);
         if (this->ent == nullptr) return;
         this->type = ent->type;
         ui->type->setVisible(false);
@@ -292,14 +362,26 @@ void DialogEditProfile::typeSelected(const QString &newType) {
         connect(_innerWidget->_protocol_version, &QComboBox::currentTextChanged, _innerWidget, [=,this](const QString &txt)
         {
             _innerWidget->editHysteriaLayout(txt);
-            ADJUST_SIZE
+            queueRefreshDialogLayout();
         });
     } else if (type == "tuic") {
         auto _innerWidget = new EditTuic(this);
         innerWidget = _innerWidget;
         innerEditor = _innerWidget;
+    } else if (type == "juicity") {
+        auto _innerWidget = new EditJuicity(this);
+        innerWidget = _innerWidget;
+        innerEditor = _innerWidget;
+    } else if (type == "trusttunnel") {
+        auto _innerWidget = new EditTrustTunnel(this);
+        innerWidget = _innerWidget;
+        innerEditor = _innerWidget;
     } else if (type == "anytls") {
         auto _innerWidget = new EditAnyTLS(this);
+        innerWidget = _innerWidget;
+        innerEditor = _innerWidget;
+    } else if (type == "shadowtls") {
+        auto _innerWidget = new EditShadowTLS(this);
         innerWidget = _innerWidget;
         innerEditor = _innerWidget;
     } else if (type == "wireguard") {
@@ -314,7 +396,9 @@ void DialogEditProfile::typeSelected(const QString &newType) {
         auto _innerWidget = new EditSSH(this);
         innerWidget = _innerWidget;
         innerEditor = _innerWidget;
-    } else if (type == "outbound" || type == "fullconfig" || type == "custom") {
+    } else if (type == Configs::Custom::CustomOutbound || type == Configs::Custom::CustomFullConfig ||
+               type == Configs::Custom::CustomXrayOutbound || type == Configs::Custom::CustomXrayFullConfig ||
+               type == "custom") {
         auto _innerWidget = new EditCustom(this);
         innerWidget = _innerWidget;
         innerEditor = _innerWidget;
@@ -324,6 +408,14 @@ void DialogEditProfile::typeSelected(const QString &newType) {
     } else if (type == "extracore")
     {
         auto _innerWidget = new EditExtraCore(this);
+        innerWidget = _innerWidget;
+        innerEditor = _innerWidget;
+    } else if (type == "naive") {
+        auto _innerWidget = new EditNaive(this);
+        innerWidget = _innerWidget;
+        innerEditor = _innerWidget;
+    } else if (type == "direct") {
+        auto _innerWidget = new EditDirect(this);
         innerWidget = _innerWidget;
         innerEditor = _innerWidget;
     } else {
@@ -336,16 +428,30 @@ void DialogEditProfile::typeSelected(const QString &newType) {
     }
 
     if (newEnt) {
-        this->ent = Configs::ProfileManager::NewProxyEntity(type);
+        this->ent = Configs::dataManager->profilesRepo->NewProfile(type);
         this->ent->gid = groupId;
     }
 
     // hide some widget
-    auto showAddressPort = type != "chain" && customType != "outbound" && customType != "fullconfig" && type != "extracore" && type != "tailscale";
+    auto showAddressPort = type != "chain"
+                           && type != "direct"
+                           && customType != Configs::Custom::CustomOutbound
+                           && customType != Configs::Custom::CustomFullConfig
+                           && customType != Configs::Custom::CustomXrayOutbound
+                           && customType != Configs::Custom::CustomXrayFullConfig
+                           && type != "extracore" && type != "tailscale";
     ui->address->setVisible(showAddressPort);
     ui->address_l->setVisible(showAddressPort);
     ui->port->setVisible(showAddressPort);
     ui->port_l->setVisible(showAddressPort);
+
+    auto showAdvancedDialOption = type != "chain"
+    && type != "extracore" && type != "tailscale"
+    && customType != Configs::Custom::CustomOutbound
+    && customType != Configs::Custom::CustomFullConfig
+    && customType != Configs::Custom::CustomXrayOutbound
+    && customType != Configs::Custom::CustomXrayFullConfig;
+    ui->advanced_button->setVisible(showAdvancedDialOption);
 
     if (ent->outbound->HasTLS() || ent->outbound->HasTransport()) {
         ui->right_all_w->setVisible(true);
@@ -365,7 +471,7 @@ void DialogEditProfile::typeSelected(const QString &newType) {
         ui->sni->setText(tls->server_name);
         ui->alpn->setText(tls->alpn.join(","));
         if (newEnt) {
-            ui->utlsFingerprint->setCurrentText(Configs::dataStore->utlsFingerprint);
+            ui->utlsFingerprint->setCurrentText(Configs::dataManager->settingsRepo->utlsFingerprint);
         } else {
             ui->utlsFingerprint->setCurrentText(tls->utls->fingerPrint);
         }
@@ -389,6 +495,38 @@ void DialogEditProfile::typeSelected(const QString &newType) {
         auto xrayStream = ent->outbound->GetXrayStream();
         auto xrayMux = ent->outbound->GetXrayMultiplex();
 
+        updateXrayCommons(xrayStream->network);
+
+        ui->xray_xpaddingbytes->setText(xrayStream->xhttp->xPaddingBytes);
+        ui->xray_xpadding_obfs_mode->setChecked(xrayStream->xhttp->xPaddingObfsMode);
+        ui->xray_xpadding_key->setText(xrayStream->xhttp->xPaddingKey);
+        ui->xray_xpadding_header->setText(xrayStream->xhttp->xPaddingHeader);
+        ui->xray_xpadding_placement->setCurrentText(xrayStream->xhttp->xPaddingPlacement);
+        ui->xray_xpadding_method->setCurrentText(xrayStream->xhttp->xPaddingMethod);
+        ui->xray_uplink_http_method->setCurrentText(xrayStream->xhttp->uplinkHTTPMethod);
+        ui->xray_session_placement->setCurrentText(xrayStream->xhttp->sessionPlacement);
+        ui->xray_session_key->setText(xrayStream->xhttp->sessionKey);
+        ui->xray_seq_placement->setCurrentText(xrayStream->xhttp->seqPlacement);
+        ui->xray_seq_key->setText(xrayStream->xhttp->seqKey);
+        ui->xray_uplink_data_placement->setCurrentText(xrayStream->xhttp->uplinkDataPlacement);
+        ui->xray_uplink_data_key->setText(xrayStream->xhttp->uplinkDataKey);
+        ui->xray_uplink_chunk_size->setText(xrayStream->xhttp->uplinkChunkSize);
+        ui->xray_no_grpc->setChecked(xrayStream->xhttp->noGRPCHeader);
+        ui->xray_no_sse->setChecked(xrayStream->xhttp->noSSEHeader);
+        ui->xray_scMaxEachPostBytes->setText(xrayStream->xhttp->scMaxEachPostBytes);
+        ui->xray_scMinPostsIntervalMs->setText(xrayStream->xhttp->scMinPostsIntervalMs);
+        ui->xray_scMaxBufferedPosts->setText(Int2String(xrayStream->xhttp->scMaxBufferedPosts));
+        ui->xray_scStreamUpServerSecs->setText(xrayStream->xhttp->scStreamUpServerSecs);
+        ui->xray_serverMaxHeaderBytes->setText(Int2String(xrayStream->xhttp->serverMaxHeaderBytes));
+        ui->xray_max_concurrency->setText(xrayStream->xhttp->maxConcurrency);
+        ui->xray_max_connections->setText(xrayStream->xhttp->maxConnections);
+        ui->xray_hMaxRequestTimes->setText(xrayStream->xhttp->hMaxRequestTimes);
+        ui->xray_hMaxReusableSecs->setText(xrayStream->xhttp->hMaxReusableSecs);
+        ui->xray_max_reuse_times->setText(xrayStream->xhttp->cMaxReuseTimes);
+        ui->xray_keep_alive_period->setText(Int2String(xrayStream->xhttp->hKeepAlivePeriod));
+        CACHE.XrayDownloadSettings = xrayStream->xhttp->downloadSettings;
+        ui->xray_downloadsettings_edit->setText(xrayStream->xhttp->downloadSettings.isEmpty() ? "Not Set" : "Already Set");
+
         ui->xray_network->setCurrentText(xrayStream->network);
         ui->xray_security->setCurrentText(xrayStream->security);
         ui->xray_mux->setCurrentIndex(xrayMux->getMuxState());
@@ -401,23 +539,6 @@ void DialogEditProfile::typeSelected(const QString &newType) {
         ui->xray_reality_pbk->setText(xrayStream->reality->password);
         ui->xray_reality_sid->setText(xrayStream->reality->shortId);
         ui->xray_reality_spiderx->setText(xrayStream->reality->spiderX);
-
-        ui->xray_host->setText(xrayStream->xhttp->host);
-        ui->xray_path->setText(xrayStream->xhttp->path);
-        ui->xray_mode->setCurrentText(xrayStream->xhttp->mode);
-        ui->xray_headers->setText(Configs::getHeadersString(xrayStream->xhttp->headers));
-        ui->xray_xpaddingbytes->setText(xrayStream->xhttp->xPaddingBytes);
-        ui->xray_no_grpc->setChecked(xrayStream->xhttp->noGRPCHeader);
-        ui->xray_scMaxEachPostBytes->setText(xrayStream->xhttp->scMaxEachPostBytes);
-        ui->xray_scMinPostsIntervalMs->setText(xrayStream->xhttp->scMinPostsIntervalMs);
-        ui->xray_max_concurrency->setText(xrayStream->xhttp->maxConcurrency);
-        ui->xray_max_connections->setText(xrayStream->xhttp->maxConnections);
-        ui->xray_hMaxRequestTimes->setText(xrayStream->xhttp->hMaxRequestTimes);
-        ui->xray_hMaxReusableSecs->setText(xrayStream->xhttp->hMaxReusableSecs);
-        ui->xray_max_reuse_times->setText(xrayStream->xhttp->cMaxReuseTimes);
-        ui->xray_keep_alive_period->setText(Int2String(xrayStream->xhttp->hKeepAlivePeriod));
-        CACHE.XrayDownloadSettings = xrayStream->xhttp->downloadSettings;
-        ui->xray_downloadsettings_edit->setText(xrayStream->xhttp->downloadSettings.isEmpty() ? "Not Set" : "Already Set");
 
         toggleXrayWidgets(true);
         toggleSingboxWidgets(false);
@@ -477,6 +598,8 @@ void DialogEditProfile::typeSelected(const QString &newType) {
     } else {
         ui->security->setVisible(false);
         ui->security_l->setVisible(false);
+        ui->security_box->setVisible(false);
+        ui->tls_camouflage_box->setVisible(false);
     }
     if (ent->outbound->HasMux()) {
         ui->multiplex->setVisible(true);
@@ -499,11 +622,37 @@ void DialogEditProfile::typeSelected(const QString &newType) {
     }
 
     editor_cache_updated_impl();
-    ADJUST_SIZE
+    runOnThread([=,this] {
+        adjustSize();
+        adjustPosition(mainwindow);
+        if (isHidden()) show();
+    }, this);
+}
 
-    // 第一次显示
-    if (isHidden()) {
-        runOnThread([=,this] { show(); }, this);
+void DialogEditProfile::updateXrayCommons(QString network) {
+    if (!ent->outbound->IsXray()) return;
+    auto stream = ent->outbound->GetXrayStream();
+
+    if (network == "xhttp") {
+        ui->xray_host->setText(stream->xhttp->host);
+        ui->xray_path->setText(stream->xhttp->path);
+        ui->xray_mode->setCurrentText(stream->xhttp->mode);
+        ui->xray_headers->setText(Configs::getHeadersString(stream->xhttp->headers));
+        updateXrayXHTTPControls();
+    } else if (network == "grpc") {
+        ui->xray_host->setText(stream->grpc->authority);
+        ui->xray_path->setText(stream->grpc->serviceName);
+        ui->xray_multi_mode->setChecked(stream->grpc->multiMode);
+    } else if (network == "ws") {
+        ui->xray_host->setText(stream->ws->host);
+        ui->xray_path->setText(stream->ws->path);
+        ui->xray_ed_length->setText(QString::number(stream->ws->ed));
+        ui->xray_headers->setText(Configs::getHeadersString(stream->ws->headers));
+    } else if(network == "httpupgrade") {
+        ui->xray_host->setText(stream->httpupgrade->host);
+        ui->xray_path->setText(stream->httpupgrade->path);
+        ui->xray_ed_length->setText(QString::number(stream->httpupgrade->ed));
+        ui->xray_headers->setText(Configs::getHeadersString(stream->httpupgrade->headers));
     }
 }
 
@@ -518,6 +667,7 @@ bool DialogEditProfile::onEnd() {
     }
 
     if (!validateHeaders()) return false;
+    if (!validateXrayXHTTPSettings()) return false;
 
     ent->outbound->name = ui->name->text();
     ent->outbound->SetAddress(ui->address->text().remove(' '));
@@ -578,21 +728,54 @@ bool DialogEditProfile::onEnd() {
         xrayStream->reality->shortId = ui->xray_reality_sid->text();
         xrayStream->reality->spiderX = ui->xray_reality_spiderx->text();
 
-        xrayStream->xhttp->host = ui->xray_host->text();
-        xrayStream->xhttp->path = ui->xray_path->text();
-        xrayStream->xhttp->mode = ui->xray_mode->currentText();
-        xrayStream->xhttp->headers = Configs::parseHeaderPairs(ui->xray_headers->text());
-        xrayStream->xhttp->xPaddingBytes = ui->xray_xpaddingbytes->text();
-        xrayStream->xhttp->noGRPCHeader = ui->xray_no_grpc->isChecked();
-        xrayStream->xhttp->scMaxEachPostBytes = ui->xray_scMaxEachPostBytes->text();
-        xrayStream->xhttp->scMinPostsIntervalMs = ui->xray_scMinPostsIntervalMs->text();
-        xrayStream->xhttp->maxConcurrency = ui->xray_max_concurrency->text();
-        xrayStream->xhttp->maxConnections = ui->xray_max_connections->text();
-        xrayStream->xhttp->hMaxRequestTimes = ui->xray_hMaxRequestTimes->text();
-        xrayStream->xhttp->hMaxReusableSecs = ui->xray_hMaxReusableSecs->text();
-        xrayStream->xhttp->cMaxReuseTimes = ui->xray_max_reuse_times->text();
-        xrayStream->xhttp->hKeepAlivePeriod = ui->xray_keep_alive_period->text().toLongLong();
-        xrayStream->xhttp->downloadSettings = CACHE.XrayDownloadSettings;
+        if (xrayStream->network == "xhttp") {
+            xrayStream->xhttp->host = ui->xray_host->text();
+            xrayStream->xhttp->path = ui->xray_path->text();
+            xrayStream->xhttp->mode = ui->xray_mode->currentText();
+            xrayStream->xhttp->headers = Configs::parseHeaderPairs(ui->xray_headers->text());
+            xrayStream->xhttp->xPaddingBytes = ui->xray_xpaddingbytes->text();
+            xrayStream->xhttp->xPaddingObfsMode = ui->xray_xpadding_obfs_mode->isChecked();
+            xrayStream->xhttp->xPaddingKey = ui->xray_xpadding_key->text();
+            xrayStream->xhttp->xPaddingHeader = ui->xray_xpadding_header->text();
+            xrayStream->xhttp->xPaddingPlacement = ui->xray_xpadding_placement->currentText();
+            xrayStream->xhttp->xPaddingMethod = ui->xray_xpadding_method->currentText();
+            xrayStream->xhttp->uplinkHTTPMethod = ui->xray_uplink_http_method->currentText();
+            xrayStream->xhttp->sessionPlacement = ui->xray_session_placement->currentText();
+            xrayStream->xhttp->sessionKey = ui->xray_session_key->text();
+            xrayStream->xhttp->seqPlacement = ui->xray_seq_placement->currentText();
+            xrayStream->xhttp->seqKey = ui->xray_seq_key->text();
+            xrayStream->xhttp->uplinkDataPlacement = ui->xray_uplink_data_placement->currentText();
+            xrayStream->xhttp->uplinkDataKey = ui->xray_uplink_data_key->text();
+            xrayStream->xhttp->uplinkChunkSize = ui->xray_uplink_chunk_size->text();
+            xrayStream->xhttp->noGRPCHeader = ui->xray_no_grpc->isChecked();
+            xrayStream->xhttp->noSSEHeader = ui->xray_no_sse->isChecked();
+            xrayStream->xhttp->scMaxEachPostBytes = ui->xray_scMaxEachPostBytes->text();
+            xrayStream->xhttp->scMinPostsIntervalMs = ui->xray_scMinPostsIntervalMs->text();
+            xrayStream->xhttp->scMaxBufferedPosts = ui->xray_scMaxBufferedPosts->text().toLongLong();
+            xrayStream->xhttp->scStreamUpServerSecs = ui->xray_scStreamUpServerSecs->text();
+            xrayStream->xhttp->serverMaxHeaderBytes = ui->xray_serverMaxHeaderBytes->text().toInt();
+            xrayStream->xhttp->maxConcurrency = ui->xray_max_concurrency->text();
+            xrayStream->xhttp->maxConnections = ui->xray_max_connections->text();
+            xrayStream->xhttp->hMaxRequestTimes = ui->xray_hMaxRequestTimes->text();
+            xrayStream->xhttp->hMaxReusableSecs = ui->xray_hMaxReusableSecs->text();
+            xrayStream->xhttp->cMaxReuseTimes = ui->xray_max_reuse_times->text();
+            xrayStream->xhttp->hKeepAlivePeriod = ui->xray_keep_alive_period->text().toLongLong();
+            xrayStream->xhttp->downloadSettings = xrayStream->xhttp->mode == "stream-one" ? QString() : CACHE.XrayDownloadSettings;
+        } else if (xrayStream->network == "grpc") {
+            xrayStream->grpc->authority = ui->xray_host->text();
+            xrayStream->grpc->serviceName = ui->xray_path->text();
+            xrayStream->grpc->multiMode = ui->xray_multi_mode->isChecked();
+        } else if (xrayStream->network == "ws") {
+            xrayStream->ws->host = ui->xray_host->text();
+            xrayStream->ws->path = ui->xray_path->text();
+            xrayStream->ws->ed = ui->xray_ed_length->text().toInt();
+            xrayStream->ws->headers = Configs::parseHeaderPairs(ui->xray_headers->text());
+        } else if (xrayStream->network == "httpupgrade") {
+            xrayStream->httpupgrade->host = ui->xray_host->text();
+            xrayStream->httpupgrade->path = ui->xray_path->text();
+            xrayStream->httpupgrade->ed = ui->xray_ed_length->text().toInt();
+            xrayStream->httpupgrade->headers = Configs::parseHeaderPairs(ui->xray_headers->text());
+        }
     }
 
     return true;
@@ -605,19 +788,19 @@ void DialogEditProfile::accept() {
     }
 
     // finish
-    QStringList msg = {"accept"};
+    QStringList args;
 
     if (newEnt) {
-        auto ok = Configs::profileManager->AddProfile(ent);
+        auto ok = Configs::dataManager->profilesRepo->AddProfile(ent);
         if (!ok) {
             MessageBoxWarning("???", "id exists");
         }
     } else {
-        auto changed = ent->Save();
-        if (changed && Configs::dataStore->started_id == ent->id) msg << "restart";
+        auto changed = Configs::dataManager->profilesRepo->Save(ent);
+        if (changed && Configs::dataManager->settingsRepo->started_id == ent->id) args << MwArg::RestartProxy;
     }
 
-    MW_dialog_message(Dialog_DialogEditProfile, msg.join(","));
+    MW_dialog_message(MwMessage::ProfileChanged, args);
     QDialog::accept();
 }
 
