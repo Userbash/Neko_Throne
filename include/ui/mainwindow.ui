@@ -324,7 +324,7 @@ QTabBar {
 }
 
 QTabBar::tab {
-    border: 1px solid #555555;
+    border: 1px solid #777777;
 
     border-radius: 4px;
     padding: 2px 4px;
@@ -437,7 +437,7 @@ QTabBar {
 }
 
 QTabBar::tab {
-    border: 1px solid #555555;
+    border: 1px solid #777777;
 
     border-radius: 4px;
     padding: 2px 4px;
