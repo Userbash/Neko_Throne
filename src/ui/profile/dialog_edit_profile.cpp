@@ -568,6 +568,8 @@ void DialogEditProfile::typeSelected(const QString &newType) {
     innerEditor->get_edit_text_name = [&]() { return ui->name->text(); };
     innerEditor->get_edit_text_serverAddress = [&]() { return ui->address->text(); };
     innerEditor->get_edit_text_serverPort = [&]() { return ui->port->text(); };
+    innerEditor->set_edit_text_serverAddress = [&](const QString &v) { ui->address->setText(v); };
+    innerEditor->set_edit_text_serverPort = [&](const QString &v) { ui->port->setText(v); };
     innerEditor->editor_cache_updated = [=,this] { editor_cache_updated_impl(); };
     innerEditor->onStart(ent);
 

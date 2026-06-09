@@ -1,7 +1,53 @@
 #include "include/ui/profile/edit_wireguard.h"
 
+#include "include/api/RPC.h"
+#include "include/configs/sub/warp.h"
+#include "include/global/Utils.hpp"
+
 EditWireguard::EditWireguard(QWidget *parent) : QWidget(parent), ui(new Ui::EditWireguard) {
     ui->setupUi(this);
+
+    connect(ui->warp_autogen, &QPushButton::clicked, this, [=, this] {
+        auto originalText = ui->warp_autogen->text();
+        // genWarpConfig blocks on a nested event loop, so the button stays
+        // clickable while the request is in flight; disable it to avoid firing
+        // a second request on a double click.
+        ui->warp_autogen->setEnabled(false);
+        ui->warp_autogen->setText(tr("Getting keypair..."));
+        bool ok;
+        auto keyPair = API::defaultClient->GenWgKeyPair(&ok);
+        if (!ok) {
+            runOnUiThread([=] { MessageBoxWarning(tr("Failed to get key pair"), keyPair.error->c_str()); });
+            ui->warp_autogen->setText(originalText);
+            ui->warp_autogen->setEnabled(true);
+            return;
+        }
+        ui->warp_autogen->setText(tr("Generating config..."));
+        QString error;
+        auto conf = Configs_network::genWarpConfig(&error, keyPair.private_key->c_str(), keyPair.public_key->c_str());
+        if (!error.isEmpty()) {
+            runOnUiThread([=] { MessageBoxWarning(tr("Failed to generate warp config"), error); });
+            ui->warp_autogen->setText(originalText);
+            ui->warp_autogen->setEnabled(true);
+            return;
+        }
+        ui->private_key->setText(conf->privateKey);
+        ui->public_key->setText(conf->publicKey);
+        ui->local_addr->setText(conf->ipv4Address + "/32," + conf->ipv6Address + "/128");
+        ui->mtu->setText("1280");
+        ui->persistent_keepalive->setText("30");
+        // The endpoint (host:port) lives in the outer profile dialog's
+        // address/port fields, reached through the editor hooks.
+        if (auto sep = conf->endpoint.lastIndexOf(':'); sep > 0) {
+            if (set_edit_text_serverAddress) set_edit_text_serverAddress(conf->endpoint.left(sep));
+            if (set_edit_text_serverPort) set_edit_text_serverPort(conf->endpoint.mid(sep + 1));
+        }
+        ui->warp_autogen->setText(tr("Success!"));
+        setTimeout([=, this] {
+            ui->warp_autogen->setText(originalText);
+            ui->warp_autogen->setEnabled(true);
+        }, this, 2000);
+    });
 }
 
 EditWireguard::~EditWireguard() {
