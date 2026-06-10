@@ -665,7 +665,6 @@ namespace Configs {
             inboundObj["mtu"] = Configs::dataManager->settingsRepo->vpn_mtu;
             inboundObj["stack"] = Configs::dataManager->settingsRepo->vpn_implementation;
             inboundObj["strict_route"] = Configs::dataManager->settingsRepo->vpn_strict_route;
-            if (ctx->os == Linux) inboundObj["auto_redirect"] = true;
             const auto tunIPv4CIDR = Configs::dataManager->settingsRepo->vpn_tun_ipv4_cidr;
             const auto tunIPv6CIDR = Configs::dataManager->settingsRepo->vpn_tun_ipv6_cidr;
             ctx->buildConfigResult->tunIPv4CIDR = tunIPv4CIDR;
