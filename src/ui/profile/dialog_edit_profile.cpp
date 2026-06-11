@@ -683,7 +683,7 @@ bool DialogEditProfile::onEnd() {
         transport->path = ui->path->text();
         transport->host = ui->host->text();
         tls->server_name = ui->sni->text();
-        tls->alpn = SplitAndTrim(ui->alpn->text(), ",");
+        tls->alpn = SplitAndTrim(ui->alpn->text(), ",", false);
         tls->utls->fingerPrint = ui->utlsFingerprint->currentText();
         tls->utls->enabled = !tls->utls->fingerPrint.isEmpty();
         tls->fragment = ui->tls_frag->isChecked();
