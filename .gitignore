@@ -94,3 +94,11 @@ out
 srslist.h
 aqtinstall.log
 # Go binary
+/artifacts/
+*.strace
+*_smoke.log
+build_*.log
+build_*.strace
+headless_*.log
+include/configs/RuleSetMap.hpp
+strace_stdout.log
