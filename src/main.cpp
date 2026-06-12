@@ -299,12 +299,13 @@ int main(int argc, char* argv[]) {
     DS_cores = new QThread;
     DS_cores->start();
 
+    const bool diagnosticNoSingleInstance = diagnostic_single_instance_disabled(Configs::dataStore->argv);
+
     // Single instance check via local socket
     QByteArray hashBytes = QCryptographicHash::hash(wd.absolutePath().toUtf8(), QCryptographicHash::Md5).toBase64(QByteArray::OmitTrailingEquals);
     hashBytes.replace('+', '0').replace('/', '1');
     auto serverName = LOCAL_SERVER_PREFIX + QString::fromUtf8(hashBytes);
-    
-    {
+    if (!diagnosticNoSingleInstance) {
         QLocalSocket socket;
         socket.connectToServer(serverName);
         if (socket.waitForConnected(250)) {
@@ -317,6 +318,8 @@ int main(int argc, char* argv[]) {
         if (QLocalServer::removeServer(serverName)) {
             qInfo() << "Cleaned up stale local server socket:" << serverName;
         }
+    } else {
+        qInfo() << "Diagnostic mode: single-instance guard disabled.";
     }
 
     QIcon::setFallbackSearchPaths(QStringList{ ":/icon" });

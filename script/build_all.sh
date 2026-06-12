@@ -25,6 +25,15 @@ command -v go >/dev/null 2>&1 || { echo -e "${RED}go not found!${NC}"; exit 1; }
 command -v curl >/dev/null 2>&1 || { echo -e "${RED}curl not found!${NC}"; exit 1; }
 command -v ccache >/dev/null 2>&1 || { echo -e "${YELLOW}ccache not found, proceeding without it...${NC}"; }
 
+GO_BIN="$(command -v go || true)"
+if [ -z "$GO_BIN" ]; then
+    echo -e "${RED}go not found!${NC}"
+    exit 1
+fi
+
+export GO111MODULE=on
+export GOWORK=off
+
 # Ensure srslist.h is present
 if [ ! -f "srslist.h" ]; then
     echo "Downloading srslist.h..."
@@ -34,13 +43,14 @@ fi
 echo -e "${YELLOW}[1/5] Setup Environment (Qt 6.10.2)...${NC}"
 # Жесткая привязка к версии 6.10.2
 export QT_ROOT="/var/home/sanya/Qt6.10/6.10.2/gcc_64"
-export PATH="$QT_ROOT/bin:$PATH:$(go env GOPATH)/bin"
+export PATH="$QT_ROOT/bin:$PATH:$GOPATH/bin"
 export CMAKE_PREFIX_PATH="$QT_ROOT"
 export GOOS=linux
 export GOARCH=amd64
+export GOPATH=$HOME/.cache/go-path
 export GOMODCACHE=$HOME/.cache/go-mod
 export GOCACHE=$HOME/.cache/go-build
-mkdir -p "$GOMODCACHE" "$GOCACHE"
+mkdir -p "$GOPATH" "$GOMODCACHE" "$GOCACHE"
 
 # 1. Сборка переводов
 mkdir -p build/lang
@@ -50,10 +60,21 @@ cp res/translations/*.qm build/lang/ || true
 
 echo -e "${YELLOW}[2/5] Building Go Backend Core...${NC}"
 {
+    export PATH="$PATH:$HOME/.local/bin:$GOPATH/bin"
+    if ! command -v protoc-gen-go >/dev/null 2>&1; then
+        $GO_BIN install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
+    fi
+    if ! command -v protoc-gen-go-grpc >/dev/null 2>&1; then
+        $GO_BIN install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
+    fi
     cd core/server
-    go mod tidy
-    VERSION_SINGBOX=$(go list -m -f '{{.Version}}' github.com/sagernet/sing-box)
-    go build -v -trimpath -ldflags="-w -s -X 'github.com/sagernet/sing-box/constant.Version=${VERSION_SINGBOX}' -checklinkname=0" -tags "with_clash_api,with_gvisor,with_quic,with_wireguard,with_utls,with_dhcp,with_tailscale,badlinkname,tfogo_checklinkname0" -o ../../build/NekoCore .
+    if [ -f gen/libcore.pb.go ] || [ -f gen/libcore_grpc.pb.go ]; then
+        rm -f gen/libcore.pb.go gen/libcore_grpc.pb.go
+    fi
+    protoc -I gen --go_out=gen --go-grpc_out=gen gen/libcore.proto
+    $GO_BIN mod tidy
+    VERSION_SINGBOX=$($GO_BIN list -m -f '{{.Version}}' github.com/sagernet/sing-box)
+    $GO_BIN build -v -trimpath -ldflags="-w -s -X 'github.com/sagernet/sing-box/constant.Version=${VERSION_SINGBOX}' -checklinkname=0" -tags "with_clash_api,with_gvisor,with_quic,with_wireguard,with_utls,with_dhcp,with_tailscale,badlinkname,tfogo_checklinkname0" -o ../../build/NekoCore .
     cd ../..
 } >> "$LOG_FILE" 2>&1
 
