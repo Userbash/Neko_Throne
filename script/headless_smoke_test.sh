@@ -22,7 +22,7 @@ fi
 
 rm -f "$LOG_FILE"
 set +e
-timeout 25s "$APP" --headless-smoke --version >"$LOG_FILE" 2>&1
+timeout 25s "$APP" --offscreen --headless-smoke >"$LOG_FILE" 2>&1
 status=$?
 set -e
 

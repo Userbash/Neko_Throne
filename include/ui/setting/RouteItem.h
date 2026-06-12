@@ -36,6 +36,10 @@ private:
     QStringList geo_items;
 
     AutoCompleteTextEdit* rule_set_editor;
+    QComboBox* rule_attr = nullptr;
+    QGroupBox* rule_attr_data = nullptr;
+    QComboBox* rule_attr_selector = nullptr;
+    QPlainTextEdit* rule_attr_text = nullptr;
 
     QStringList current_helper_items;
 

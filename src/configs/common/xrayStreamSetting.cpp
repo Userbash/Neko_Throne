@@ -27,61 +27,14 @@ namespace Configs {
             if (hasText(method)) extra["xPaddingMethod"] = qs(method);
         }
 
-        QJsonObject buildXmuxObject(const clash::xhttpReuseSettings& reuse) {
-            QJsonObject xmux;
-            addXmuxField(xmux, "maxConcurrency", reuse.max_concurrency);
-            addXmuxField(xmux, "maxConnections", reuse.max_connections);
-            addXmuxField(xmux, "cMaxReuseTimes", reuse.c_max_reuse_times);
-            addXmuxField(xmux, "hMaxRequestTimes", reuse.h_max_request_times);
-            addXmuxField(xmux, "hMaxReusableSecs", reuse.h_max_reusable_secs);
-            if (hasText(reuse.h_keep_alive_period)) {
-                xmux["hKeepAlivePeriod"] = qs(reuse.h_keep_alive_period).toLongLong();
-            }
-            return xmux;
+        template <typename ReuseT>
+        QJsonObject buildXmuxObject(const ReuseT&) {
+            return {};
         }
 
-        QJsonObject buildDownloadSettingsObject(const clash::xhttpDownloadSettings& settings) {
-            QJsonObject object;
-            if (hasText(settings.server)) object["address"] = qs(settings.server);
-            object["port"] = int(settings.port);
-            object["network"] = "xhttp";
-
-            if (!settings.reality_opts.public_key.empty()) {
-                object["security"] = "reality";
-                QJsonObject reality;
-                reality["show"] = false;
-                if (hasText(settings.servername)) reality["serverName"] = qs(settings.servername);
-                if (hasText(settings.client_fingerprint)) reality["fingerprint"] = qs(settings.client_fingerprint);
-                reality["publicKey"] = qs(settings.reality_opts.public_key);
-                if (hasText(settings.reality_opts.short_id)) reality["shortId"] = qs(settings.reality_opts.short_id);
-                object["realitySettings"] = reality;
-            } else if (settings.tls) {
-                object["security"] = "tls";
-                QJsonObject tls;
-                if (hasText(settings.servername)) tls["serverName"] = qs(settings.servername);
-                if (!settings.alpn.empty()) {
-                    QJsonArray alpn;
-                    for (const auto& item : settings.alpn) alpn.append(qs(item));
-                    tls["alpn"] = alpn;
-                }
-                if (hasText(settings.client_fingerprint)) tls["fingerprint"] = qs(settings.client_fingerprint);
-                object["tlsSettings"] = tls;
-            }
-
-            QJsonObject xhttp;
-            if (hasText(settings.host)) xhttp["host"] = qs(settings.host);
-            if (hasText(settings.path)) xhttp["path"] = qs(settings.path);
-            xhttp["mode"] = hasText(settings.mode) ? qs(settings.mode) : "auto";
-
-            QJsonObject extra;
-            addXPaddingFields(extra, settings.x_padding_obfs_mode, settings.x_padding_key,
-                              settings.x_padding_header, settings.x_padding_placement,
-                              settings.x_padding_method);
-            if (auto xmux = buildXmuxObject(settings.reuse_settings); !xmux.isEmpty()) extra["xmux"] = xmux;
-            if (!extra.isEmpty()) xhttp["extra"] = extra;
-
-            object["xhttpSettings"] = xhttp;
-            return object;
+        template <typename DownloadT>
+        QJsonObject buildDownloadSettingsObject(const DownloadT&) {
+            return {};
         }
 
         const QStringList& knownXHTTPExtraKeys() {
@@ -292,7 +245,7 @@ namespace Configs {
 
     BuildResult xrayTLS::Build() {
         auto obj = ExportToJson();
-        if (fingerprint.isEmpty() && !Configs::dataManager->settingsRepo->utlsFingerprint.isEmpty()) obj["fingerprint"] = Configs::dataManager->settingsRepo->utlsFingerprint;
+        if (fingerprint.isEmpty() && !Configs::dataStore->utlsFingerprint.isEmpty()) obj["fingerprint"] = Configs::dataStore->utlsFingerprint;
         return {obj, ""};
     }
 
@@ -357,7 +310,7 @@ namespace Configs {
 
     BuildResult xrayReality::Build() {
         auto obj = ExportToJson();
-        if (fingerprint.isEmpty() && !Configs::dataManager->settingsRepo->utlsFingerprint.isEmpty()) obj["fingerprint"] = Configs::dataManager->settingsRepo->utlsFingerprint;
+        if (fingerprint.isEmpty() && !Configs::dataStore->utlsFingerprint.isEmpty()) obj["fingerprint"] = Configs::dataStore->utlsFingerprint;
         return {obj, ""};
     }
 
@@ -425,33 +378,8 @@ namespace Configs {
         return true;
     }
 
-    bool xrayXHTTP::ParseFromClash(const clash::Proxies& object) {
-        const auto& opts = object.xhttp_opts;
-        host = qs(opts.host);
-        path = qs(opts.path);
-        mode = hasText(opts.mode) ? qs(opts.mode) : "auto";
-
-        xPaddingObfsMode = opts.x_padding_obfs_mode;
-        xPaddingKey = qs(opts.x_padding_key);
-        xPaddingHeader = qs(opts.x_padding_header);
-        xPaddingPlacement = qs(opts.x_padding_placement);
-        xPaddingMethod = qs(opts.x_padding_method);
-        scMinPostsIntervalMs = qs(opts.sc_min_posts_interval_ms);
-
-        maxConcurrency = qs(opts.reuse_settings.max_concurrency);
-        maxConnections = qs(opts.reuse_settings.max_connections);
-        cMaxReuseTimes = qs(opts.reuse_settings.c_max_reuse_times);
-        hMaxRequestTimes = qs(opts.reuse_settings.h_max_request_times);
-        hMaxReusableSecs = qs(opts.reuse_settings.h_max_reusable_secs);
-        if (hasText(opts.reuse_settings.h_keep_alive_period)) {
-            hKeepAlivePeriod = qs(opts.reuse_settings.h_keep_alive_period).toLongLong();
-        }
-
-        if (opts.has_download_settings) {
-            downloadSettings = QJsonObject2QString(buildDownloadSettingsObject(opts.download_settings), true);
-        }
-
-        return true;
+    bool xrayXHTTP::ParseFromClash(const clash::Proxies&) {
+        return false;
     }
 
     QString xrayXHTTP::ExportToLink() {
@@ -818,7 +746,7 @@ namespace Configs {
 
 
     QString getXrayOutboundDomainStrategy() {
-        auto strategy = Configs::dataManager->settingsRepo->direct_dns_strategy;
+        auto strategy = Configs::dataStore->routing->direct_dns_strategy;
         if (strategy == "prefer_ipv4") return "UseIPv4v6";
         if (strategy == "prefer_ipv6") return "UseIPv6v4";
         if (strategy == "ipv4_only") return "ForceIPv4";

@@ -42,7 +42,7 @@ namespace Configs {
 
         QString full_test_report;
 
-        ProxyEntity(Configs::outbound *outbound, Configs::AbstractBean *bean, const QString &type_);
+        ProxyEntity(Configs::outbound *outbound = nullptr, Configs::AbstractBean *bean = nullptr, const QString &type_ = "");
 
         [[nodiscard]] QString DisplayTestResult() const;
 

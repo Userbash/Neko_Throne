@@ -268,6 +268,7 @@ namespace Configs {
         _add(new configItem("current_group", &current_group, itemType::integer));
         _add(new configItem("inbound_address", &inbound_address, itemType::string));
         _add(new configItem("inbound_socks_port", &inbound_socks_port, itemType::integer));
+        _add(new configItem("disable_mixed_inbound", &disable_mixed_inbound, itemType::boolean));
         _add(new configItem("random_inbound_port", &random_inbound_port, itemType::boolean));
         _add(new configItem("log_level", &log_level, itemType::string));
         _add(new configItem("mux_protocol", &mux_protocol, itemType::string));
@@ -280,6 +281,10 @@ namespace Configs {
         _add(new configItem("inbound_auth", &inbound_auth, itemType::boolean));
         _add(new configItem("inbound_username", &inbound_username, itemType::string));
         _add(new configItem("inbound_password", &inbound_password, itemType::string));
+        _add(new configItem("warp_ep", &warp_ep, itemType::string));
+        _add(new configItem("warp_private_key", &warp_private_key, itemType::string));
+        _add(new configItem("warp_public_key", &warp_public_key, itemType::string));
+        _add(new configItem("warp_ifc_addrs", &warp_ifc_addrs, itemType::string));
         _add(new configItem("custom_route", &custom_route_global, itemType::string));
         _add(new configItem("net_use_proxy", &net_use_proxy, itemType::boolean));
         _add(new configItem("remember_id", &remember_id, itemType::integer));
@@ -335,6 +340,9 @@ namespace Configs {
         _add(new configItem("stats_tab", &stats_tab, itemType::integer));
         _add(new configItem("proxy_scheme", &proxy_scheme, itemType::string));
         _add(new configItem("disable_privilege_req", &disable_privilege_req, itemType::boolean));
+        _add(new configItem("vpn_tun_ipv4_cidr", &vpn_tun_ipv4_cidr, itemType::string));
+        _add(new configItem("vpn_tun_ipv6_cidr", &vpn_tun_ipv6_cidr, itemType::string));
+        _add(new configItem("enable_warp", &enable_warp, itemType::boolean));
         _add(new configItem("enable_tun_routing", &enable_tun_routing, itemType::boolean));
         _add(new configItem("speed_test_mode", &speed_test_mode, itemType::integer));
         _add(new configItem("use_mozilla_certs", &use_mozilla_certs, itemType::boolean));
@@ -385,6 +393,9 @@ namespace Configs {
         _add(new configItem("use_dns_object", &this->use_dns_object, itemType::boolean));
         _add(new configItem("dns_object", &this->dns_object, itemType::string));
         _add(new configItem("dns_final_out", &this->dns_final_out, itemType::string));
+        _add(new configItem("enable_dns_routing", &this->enable_dns_routing, itemType::boolean));
+        _add(new configItem("resolve_domain_strategy", &this->resolve_domain_strategy, itemType::string));
+        _add(new configItem("default_domain_strategy", &this->default_domain_strategy, itemType::string));
     }
 
     Shortcuts::Shortcuts() : JsonStore()

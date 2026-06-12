@@ -102,3 +102,7 @@ build_*.strace
 headless_*.log
 include/configs/RuleSetMap.hpp
 strace_stdout.log
+# Audit artifacts
+audit_logs/
+application.log
+valgrind*.log

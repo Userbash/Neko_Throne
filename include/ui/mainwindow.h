@@ -153,9 +153,9 @@ private slots:
 
     void on_menu_update_subscription_triggered();
 
-    void on_proxyListTable_itemDoubleClicked(QTableWidgetItem *item);
+    void on_profilesTableView_itemDoubleClicked(QTableWidgetItem *item);
 
-    void on_proxyListTable_customContextMenuRequested(const QPoint &pos);
+    void on_profilesTableView_customContextMenuRequested(const QPoint &pos);
 
     void on_tabWidget_currentChanged(int index);
 

@@ -85,7 +85,7 @@ DialogManageRoutes::DialogManageRoutes(QWidget *parent) : QDialog(parent), ui(ne
     QStringList qsValue = {""};
     QString dnsHelpDocumentUrl;
 
-    ui->outbound_domain_strategy->addItems(Preset::SingBox::DomainStrategy);
+    ui->default_domain_strategy->addItems(Preset::SingBox::DomainStrategy);
     ui->domainStrategyCombo->addItems(Preset::SingBox::DomainStrategy);
     qsValue += QString("prefer_ipv4 prefer_ipv6 ipv4_only ipv6_only").split(" ");
     ui->dns_object->setPlaceholderText(DecodeB64IfValid("ewogICJzZXJ2ZXJzIjogW10sCiAgInJ1bGVzIjogW10sCiAgImZpbmFsIjogIiIsCiAgInN0cmF0ZWd5IjogIiIsCiAgImRpc2FibGVfY2FjaGUiOiBmYWxzZSwKICAiZGlzYWJsZV9leHBpcmUiOiBmYWxzZSwKICAiaW5kZXBlbmRlbnRfY2FjaGUiOiBmYWxzZSwKICAicmV2ZXJzZV9tYXBwaW5nIjogZmFsc2UsCiAgImZha2VpcCI6IHt9Cn0="));
@@ -115,7 +115,7 @@ DialogManageRoutes::DialogManageRoutes(QWidget *parent) : QDialog(parent), ui(ne
     });
     ui->sniffing_mode->setCurrentIndex(Configs::dataStore->routing->sniffing_mode);
     ui->ruleset_mirror->setCurrentIndex(Configs::dataStore->routing->ruleset_mirror);
-    ui->outbound_domain_strategy->setCurrentText(Configs::dataStore->routing->outbound_domain_strategy);
+    ui->default_domain_strategy->setCurrentText(Configs::dataStore->routing->default_domain_strategy);
     ui->domainStrategyCombo->setCurrentText(Configs::dataStore->routing->domain_strategy);
     ui->use_dns_object->setChecked(Configs::dataStore->routing->use_dns_object);
     ui->dns_object->setPlainText(Configs::dataStore->routing->dns_object);
@@ -202,7 +202,7 @@ void DialogManageRoutes::accept() {
     Configs::dataStore->routing->sniffing_mode = ui->sniffing_mode->currentIndex();
     Configs::dataStore->routing->ruleset_mirror = ui->ruleset_mirror->currentIndex();
     Configs::dataStore->routing->domain_strategy = ui->domainStrategyCombo->currentText();
-    Configs::dataStore->routing->outbound_domain_strategy = ui->outbound_domain_strategy->currentText();
+    Configs::dataStore->routing->default_domain_strategy = ui->default_domain_strategy->currentText();
     Configs::dataStore->routing->use_dns_object = ui->use_dns_object->isChecked();
     Configs::dataStore->routing->dns_object = ui->dns_object->toPlainText();
     Configs::dataStore->routing->remote_dns = ui->remote_dns->currentText();

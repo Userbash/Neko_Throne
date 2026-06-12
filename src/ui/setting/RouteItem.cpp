@@ -60,6 +60,22 @@ RouteItem::RouteItem(QWidget *parent, const std::shared_ptr<Configs::RoutingChai
     : QDialog(parent), ui(new Ui::RouteItem) {
     ui->setupUi(this);
 
+    rule_attr = new QComboBox(this);
+    if (auto layout = qobject_cast<QVBoxLayout*>(ui->groupBox_2->layout())) {
+        layout->insertWidget(1, rule_attr);
+    }
+
+    rule_attr_data = new QGroupBox(this);
+    rule_attr_data->setTitle("");
+    rule_attr_data->setLayout(new QVBoxLayout());
+    rule_attr_selector = new QComboBox(rule_attr_data);
+    rule_attr_text = new QPlainTextEdit(rule_attr_data);
+    rule_attr_data->layout()->addWidget(rule_attr_selector);
+    rule_attr_data->layout()->addWidget(rule_attr_text);
+    if (auto layout = qobject_cast<QVBoxLayout*>(ui->groupBox_2->layout())) {
+        layout->insertWidget(1, rule_attr_data);
+    }
+
     // make a copy
     chain = std::make_shared<Configs::RoutingChain>(*routeChain);
 
@@ -75,13 +91,13 @@ RouteItem::RouteItem(QWidget *parent, const std::shared_ptr<Configs::RoutingChai
     // setup rule set helper
     geo_items = ruleSetKeys();
     rule_set_editor = new AutoCompleteTextEdit("", geo_items, this);
-    ui->rule_attr_data->layout()->addWidget(rule_set_editor);
-    ui->rule_attr_data->adjustSize();
+    rule_attr_data->layout()->addWidget(rule_set_editor);
+    rule_attr_data->adjustSize();
     rule_set_editor->hide();
     connect(rule_set_editor, &QPlainTextEdit::textChanged, this, [=,this]{
         if (currentIndex == -1) return;
         auto currentVal = rule_set_editor->toPlainText().split('\n');
-        chain->Rules[currentIndex]->set_field_value(ui->rule_attr->currentText(), currentVal);
+        chain->Rules[currentIndex]->set_field_value(rule_attr->currentText(), currentVal);
         updateRulePreview();
     });
 
@@ -119,10 +135,10 @@ RouteItem::RouteItem(QWidget *parent, const std::shared_ptr<Configs::RoutingChai
     }
 
     ui->route_name->setText(chain->name);
-    ui->rule_attr->addItems(Configs::RouteRule::get_attributes());
-    adjustComboBoxWidth(ui->rule_attr);
-    ui->rule_attr_text->hide();
-    ui->rule_attr_data->setTitle("");
+    rule_attr->addItems(Configs::RouteRule::get_attributes());
+    adjustComboBoxWidth(rule_attr);
+    rule_attr_text->hide();
+    rule_attr_data->setTitle("");
     ui->rule_preview->setReadOnly(true);
     updateRuleSection();
 
@@ -242,22 +258,22 @@ RouteItem::RouteItem(QWidget *parent, const std::shared_ptr<Configs::RoutingChai
         ui->rule_name->setCursorPosition(ruleNameCursorPosition);
     });
 
-    connect(ui->rule_attr_selector, &QComboBox::currentTextChanged, this, [=,this](const QString& text){
+    connect(rule_attr_selector, &QComboBox::currentTextChanged, this, [=,this](const QString& text){
        if (currentIndex == -1) return;
-       if (ui->rule_attr->currentText() == "outbound")
+       if (rule_attr->currentText() == "outbound")
        {
-           chain->Rules[currentIndex]->set_field_value("outbound", {QString::number(outboundMap[ui->rule_attr_selector->currentIndex()])});
+           chain->Rules[currentIndex]->set_field_value("outbound", {QString::number(outboundMap[rule_attr_selector->currentIndex()])});
            updateRulePreview();
            return;
        }
-       chain->Rules[currentIndex]->set_field_value(ui->rule_attr->currentText(), {QString(text)});
+       chain->Rules[currentIndex]->set_field_value(rule_attr->currentText(), {QString(text)});
        updateRulePreview();
     });
 
-    connect(ui->rule_attr_text, &QPlainTextEdit::textChanged, this, [=,this] {
+    connect(rule_attr_text, &QPlainTextEdit::textChanged, this, [=,this] {
         if (currentIndex == -1) return;
-        auto currentVal = ui->rule_attr_text->toPlainText().split('\n');
-        chain->Rules[currentIndex]->set_field_value(ui->rule_attr->currentText(), currentVal);
+        auto currentVal = rule_attr_text->toPlainText().split('\n');
+        chain->Rules[currentIndex]->set_field_value(rule_attr->currentText(), currentVal);
         updateRulePreview();
     });
 
@@ -267,7 +283,7 @@ RouteItem::RouteItem(QWidget *parent, const std::shared_ptr<Configs::RoutingChai
         updateRuleSection();
     });
 
-    connect(ui->rule_attr, &QComboBox::currentTextChanged, this, [=,this](const QString& text){
+    connect(rule_attr, &QComboBox::currentTextChanged, this, [=,this](const QString& text){
         updateRuleSection();
     });
 
@@ -348,7 +364,7 @@ void RouteItem::updateRuleSection() {
     if (currentIndex == -1) return;
 
     auto ruleItem = chain->Rules[currentIndex];
-    auto currentAttr = ui->rule_attr->currentText();
+    auto currentAttr = rule_attr->currentText();
     switch (ruleItem->get_input_type(currentAttr)) {
         case Configs::trufalse: {
             QStringList items = {"false", "true"};
@@ -386,34 +402,34 @@ void RouteItem::updateRulePreview() {
 }
 
 void RouteItem::setDefaultRuleData(const QString& currentData) {
-    ui->rule_attr->setCurrentText("ip_version");
-    ui->rule_attr_data->setTitle("ip_version");
+    rule_attr->setCurrentText("ip_version");
+    rule_attr_data->setTitle("ip_version");
     showSelectItem(Configs::RouteRule::get_values_for_field("ip_version"), currentData);
 }
 
 void RouteItem::showSelectItem(const QStringList& items, const QString& currentItem) {
-    ui->rule_attr_text->hide();
+    rule_attr_text->hide();
     rule_set_editor->hide();
-    ui->rule_attr_selector->clear();
-    ui->rule_attr_selector->show();
-    ui->rule_attr_selector->addItems(items);
-    ui->rule_attr_selector->setCurrentText(currentItem);
-    adjustComboBoxWidth(ui->rule_attr_selector);
+    rule_attr_selector->clear();
+    rule_attr_selector->show();
+    rule_attr_selector->addItems(items);
+    rule_attr_selector->setCurrentText(currentItem);
+    adjustComboBoxWidth(rule_attr_selector);
     adjustSize();
 }
 
 void RouteItem::showTextEnterItem(const QStringList& items, bool isRuleSet) {
-    ui->rule_attr_selector->hide();
+    rule_attr_selector->hide();
     if (isRuleSet) {
-        ui->rule_attr_text->hide();
+        rule_attr_text->hide();
         rule_set_editor->clear();
         rule_set_editor->show();
         rule_set_editor->setPlainText(items.join('\n'));
     } else {
         rule_set_editor->hide();
-        ui->rule_attr_text->clear();
-        ui->rule_attr_text->show();
-        ui->rule_attr_text->setPlainText(items.join('\n'));
+        rule_attr_text->clear();
+        rule_attr_text->show();
+        rule_attr_text->setPlainText(items.join('\n'));
     }
     adjustSize();
 }

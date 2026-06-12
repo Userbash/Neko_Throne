@@ -82,6 +82,8 @@ namespace Configs
 
         virtual bool IsXray() { return false; }
 
+        virtual bool IsXrayFullConfig() { return false; }
+
         virtual bool HasMux() { return false; }
 
         virtual bool HasTransport() { return false; }

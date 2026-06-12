@@ -54,7 +54,7 @@ EditWireguard::~EditWireguard() {
     delete ui;
 }
 
-void EditWireguard::onStart(std::shared_ptr<Configs::Profile> _ent) {
+void EditWireguard::onStart(std::shared_ptr<Configs::ProxyEntity> _ent) {
     this->ent = _ent;
     auto outbound = this->ent->Wireguard();
 

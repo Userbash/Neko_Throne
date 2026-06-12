@@ -19,6 +19,9 @@ namespace Configs {
         bool use_dns_object = false;
         QString dns_object = "";
         QString dns_final_out = "proxy";
+        bool enable_dns_routing = false;
+        QString resolve_domain_strategy = "";
+        QString default_domain_strategy = "prefer_ipv4";
 
         // Misc
         QString domain_strategy = "prefer_ipv4";
@@ -134,11 +137,16 @@ namespace Configs {
         // Socks & HTTP Inbound
         QString inbound_address = "127.0.0.1";
         int inbound_socks_port = 2080; // Mixed, actually
+        bool disable_mixed_inbound = false;
         bool random_inbound_port = false;
         QString custom_inbound = "{\"inbounds\": []}";
         bool inbound_auth = false;
         QString inbound_username = "";
         QString inbound_password = "";
+        QString warp_ep = "";
+        QString warp_private_key = "";
+        QString warp_public_key = "";
+        QString warp_ifc_addrs = "";
 
         // Routing
         QString custom_route_global = "{\"rules\": []}";
@@ -160,6 +168,9 @@ namespace Configs {
         int vpn_mtu = 1500;
         bool vpn_ipv6 = false;
         bool disable_privilege_req = false;
+        QString vpn_tun_ipv4_cidr = "172.19.0.1/30";
+        QString vpn_tun_ipv6_cidr = "fdfe:dcba:9876::1/126";
+        bool enable_warp = false;
 
         // NTP
         bool enable_ntp = false;

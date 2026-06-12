@@ -23,6 +23,11 @@ public:
     void toggleSingboxWidgets(bool show);
 
     void toggleXrayWidgets(bool show);
+    void queueRefreshDialogLayout();
+    void setupXrayXHTTPControls();
+    void updateXrayXHTTPControls();
+    void updateXrayCommons(QString network);
+    bool validateXrayXHTTPSettings();
 
 public slots:
 
