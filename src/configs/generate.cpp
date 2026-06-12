@@ -8,6 +8,7 @@
 
 #include <QApplication>
 #include <QFileInfo>
+#include <algorithm>
 
 namespace Configs {
 
@@ -65,6 +66,17 @@ namespace Configs {
             }
         }
         return domains;
+    }
+
+    static QString lookupRuleSetUrl(const QString &name) {
+        const auto key = name.toStdString();
+        const auto it = std::find_if(ruleSetList.begin(), ruleSetList.end(), [&](const auto &item) {
+            return item.first == key;
+        });
+        if (it == ruleSetList.end()) {
+            return {};
+        }
+        return QString::fromStdString(std::string(it->second));
     }
 
     QStringList getEntDomains(const QList<int>& entIDs, QString &error)
@@ -818,12 +830,12 @@ namespace Configs {
                         };
             }
             else
-                if(ruleSetMap.contains(item.toStdString())) {
+                if (const auto url = lookupRuleSetUrl(item); !url.isEmpty()) {
                     ruleSetArray += QJsonObject{
                                 {"type", "remote"},
                                 {"tag", item},
                                 {"format", "binary"},
-                                {"url", get_jsdelivr_link(QString::fromStdString(ruleSetMap.at(item.toStdString())))},
+                                {"url", get_jsdelivr_link(url)},
                             };
                 }
         }

@@ -3,6 +3,15 @@
 #include "include/dataStore/Database.hpp"
 #include "include/api/RPC.h"
 
+static QStringList ruleSetKeys() {
+    QStringList keys;
+    keys.reserve((int)ruleSetList.size());
+    for (const auto &item : ruleSetList) {
+        keys.append(QString::fromStdString(std::string(item.first)));
+    }
+    return keys;
+}
+
 void adjustComboBoxWidth(const QComboBox *comboBox) {
     int maxWidth = 0;
 
@@ -64,9 +73,7 @@ RouteItem::RouteItem(QWidget *parent, const std::shared_ptr<Configs::RoutingChai
     }
 
     // setup rule set helper
-    for (const auto& item : ruleSetMap) {
-        geo_items.append(QString::fromStdString(item.first));
-    }
+    geo_items = ruleSetKeys();
     rule_set_editor = new AutoCompleteTextEdit("", geo_items, this);
     ui->rule_attr_data->layout()->addWidget(rule_set_editor);
     ui->rule_attr_data->adjustSize();
@@ -123,8 +130,8 @@ RouteItem::RouteItem(QWidget *parent, const std::shared_ptr<Configs::RoutingChai
 
     // simple rules setup
     QStringList ruleItems = {"domain:", "suffix:", "regex:", "keyword:", "ip:", "processName:", "processPath:", "ruleset:"};
-    for (const auto& item : ruleSetMap) {
-        ruleItems.append("ruleset:" + QString::fromStdString(item.first));
+    for (const auto& item : ruleSetList) {
+        ruleItems.append("ruleset:" + QString::fromStdString(std::string(item.first)));
     }
     simpleDirect = new AutoCompleteTextEdit("", ruleItems, this);
     simpleBlock = new AutoCompleteTextEdit("", ruleItems, this);

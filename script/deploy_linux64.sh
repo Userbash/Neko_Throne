@@ -81,7 +81,6 @@ export PATH="$PWD/tools-bin:$PWD/linuxdeploy-root/usr/bin:$PATH"
 
 # Run linuxdeploy to populate AppDir structure
 export EXTRA_QT_PLUGINS="iconengines;wayland-shell-integration;wayland-decoration-client"
-export EXTRA_PLATFORM_PLUGINS="libqwayland.so"
 # Disable internal strip as it might be too old for modern Arch binaries (.relr.dyn)
 export NO_STRIP=1
 

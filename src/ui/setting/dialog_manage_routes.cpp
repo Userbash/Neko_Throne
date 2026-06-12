@@ -15,6 +15,15 @@
 #include <QToolTip>
 #include <include/api/RPC.h>
 
+static QStringList ruleSetKeys() {
+    QStringList keys;
+    keys.reserve((int)ruleSetList.size());
+    for (const auto &item : ruleSetList) {
+        keys.append(QString::fromStdString(std::string(item.first)));
+    }
+    return keys;
+}
+
 void DialogManageRoutes::reloadProfileItems() {
     if (chainList.empty()) {
         MessageBoxWarning(tr("Invalid state"), tr("The list of routing profiles is empty, this should be an unreachable state, crashes may occur now"));
@@ -142,8 +151,8 @@ DialogManageRoutes::DialogManageRoutes(QWidget *parent) : QDialog(parent), ui(ne
     });
 
     QStringList ruleItems = {"domain:", "suffix:", "regex:"};
-    for (const auto& item : ruleSetMap) {
-        ruleItems.append("ruleset:" + QString::fromStdString(item.first));
+    for (const auto& item : ruleSetList) {
+        ruleItems.append("ruleset:" + QString::fromStdString(std::string(item.first)));
     }
     rule_editor = new AutoCompleteTextEdit("", ruleItems, this);
     ui->hijack_box->layout()->replaceWidget(ui->dnshijack_rules, rule_editor);

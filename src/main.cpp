@@ -122,6 +122,14 @@ void loadTranslate(const QString& locale) {
 
 #define LOCAL_SERVER_PREFIX "throne-"
 
+static bool diagnostic_single_instance_disabled(const QStringList &args) {
+    if (args.contains("--diagnostic-no-single-instance") || args.contains("--headless-smoke")) {
+        return true;
+    }
+    const auto env = qgetenv("NEKO_THRONE_DISABLE_SINGLE_INSTANCE");
+    return !env.isEmpty() && env != "0";
+}
+
 #include <QDateTime>
 #include <QFile>
 #include <QTextStream>
