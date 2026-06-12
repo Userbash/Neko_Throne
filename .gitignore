@@ -82,6 +82,11 @@ CMakeLists.txt.user*
 /deployment
 /neko*.sh
 /qtsdk
+.cache/
+/linuxdeploy-plugin-qt-root/
+/linuxdeploy-root/
+/tools-bin/
+/tools-storage/
 
 .vs
 out
