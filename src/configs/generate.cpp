@@ -107,7 +107,9 @@ namespace Configs {
         ctx->os = getOS();
         if (ctx->os == Linux)
         {
+#ifdef Q_OS_LINUX
             ctx->isResolvedUsed = isSystemdResolvedDefaultResolver();
+#endif
         }
         auto preReqs = ctx->buildPrerequisities;
         
