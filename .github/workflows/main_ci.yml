@@ -71,6 +71,9 @@ jobs:
       INPUT_VERSION: ${{ github.event.inputs.tag }}
 
     steps:
+      - uses: actions/checkout@v6.0.2
+        with: { submodules: recursive }
+
       - name: 📦 Подготовка контейнера (Linux)
         if: matrix.os_label == 'linux'
         run: |
@@ -91,9 +94,6 @@ jobs:
           /opt/qt-ci-venv/bin/python -m pip install -r scripts/ci/requirements-qt.txt
 
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-
-      - uses: actions/checkout@v6.0.2
-        with: { submodules: recursive }
 
       - name: 📦 Кэш Go артефактов
         id: cache-go
