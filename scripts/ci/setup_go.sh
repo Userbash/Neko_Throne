@@ -35,8 +35,8 @@ fi
 # ─── Install Go protoc plugins ───────────────────────────────────────────────
 if command -v go &>/dev/null; then
     echo ">> Installing Go protoc plugins..."
-    go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+    env GOOS="$(go env GOHOSTOS)" GOARCH="$(go env GOHOSTARCH)" go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+    env GOOS="$(go env GOHOSTOS)" GOARCH="$(go env GOHOSTARCH)" go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 fi
 
 echo ">> Go setup complete."
