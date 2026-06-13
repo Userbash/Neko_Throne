@@ -204,7 +204,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { platform: ubuntu-22.04,   os_label: linux,   cross_os: linux,   cross_arch: amd64 }
+          - { platform: ubuntu-20.04,   os_label: linux,   cross_os: linux,   cross_arch: amd64 }
           - { platform: windows-latest, os_label: windows, cross_os: windows, cross_arch: amd64 }
     runs-on: ${{ matrix.platform }}
     env:
