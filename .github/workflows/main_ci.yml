@@ -62,7 +62,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { platform: ubuntu-latest,  os_label: linux,   cross_os: linux,   cross_arch: amd64, container: "ubuntu:20.04" }
+          - { platform: ubuntu-latest,  os_label: linux,   cross_os: linux,   cross_arch: amd64, container: "ubuntu:24.04" }
           - { platform: windows-latest, os_label: windows, cross_os: windows, cross_arch: amd64, container: "" }
     runs-on: ${{ matrix.platform }}
     container: ${{ matrix.container }}
@@ -76,30 +76,21 @@ jobs:
         run: |
           # Kill host env leaks
           unset pythonLocation PKG_CONFIG_PATH Python_ROOT_DIR Python2_ROOT_DIR Python3_ROOT_DIR LD_LIBRARY_PATH
-          
+
           apt-get update -qq
           apt-get install -y -qq --no-install-recommends \
-            software-properties-common ca-certificates sudo curl wget gnupg2 git unzip build-essential pkg-config
-          
-          # Add deadsnakes for modern Python
-          add-apt-repository ppa:deadsnakes/ppa -y
-          apt-get update -qq
-          apt-get install -y -qq --no-install-recommends \
-            python3.9 python3.9-dev python3.9-distutils python3.9-venv
-          
-          # Install pip for python3.9
-          curl -sS https://bootstrap.pypa.io/get-pip.py | python3.9
-          python3.9 -m pip install --upgrade pip
-          python3.9 -m pip install "aqtinstall>=3.3.1" py7zr
-          
-          # Build dependencies
-          apt-get install -y -qq --no-install-recommends \
+            ca-certificates curl git unzip build-essential pkg-config \
+            python3 python3-dev python3-venv python3-pip \
             ninja-build cmake libx11-dev libx11-xcb-dev libxcb-cursor-dev libxkbcommon-dev \
             libxkbcommon-x11-dev libgl1-mesa-dev libdbus-1-dev libwayland-dev libxcb-icccm4-dev \
             libxcb-image0-dev libxcb-keysyms1-dev libxcb-randr0-dev libxcb-render-util0-dev \
             libxcb-shape0-dev libxcb-xfixes0-dev libxcb-xinerama0-dev libxcb-xkb-dev
-          
-          git config --global --add safe.directory /__w/Neko_Throne/Neko_Throne
+
+          python3 -m venv /opt/qt-ci-venv
+          /opt/qt-ci-venv/bin/python -m pip install --upgrade pip
+          /opt/qt-ci-venv/bin/python -m pip install -r scripts/ci/requirements-qt.txt
+
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - uses: actions/checkout@v6.0.2
         with: { submodules: recursive }
@@ -198,7 +189,7 @@ jobs:
       - name: 🖼️ Установка Qt via aqt (Linux)
         if: matrix.os_label == 'linux' && steps.cache-qt-linux.outputs.cache-hit != 'true'
         run: |
-          python3.9 -m aqt install-qt linux desktop ${{ env.QT_VERSION }} --outputdir ~/Qt
+          /opt/qt-ci-venv/bin/python -m aqt install-qt linux desktop ${{ env.QT_VERSION }} --outputdir ~/Qt
 
       - name: 🔧 Настройка окружения Qt (Linux)
         if: matrix.os_label == 'linux'
@@ -221,26 +212,29 @@ jobs:
         shell: cmd
         run: call .\script\build_qt_static_windows.bat ${{ env.QT_VERSION }}
 
-      - name: 🏗️ Сборка Neko Throne
+      - name: 🏗️ Сборка Neko Throne (Linux)
+        if: matrix.os_label == 'linux'
         shell: bash
         run: |
           mkdir -p build && cd build
           curl -fLso srslist.h --retry 5 "https://raw.githubusercontent.com/throneproj/routeprofiles/rule-set/srslist.h" || touch srslist.h
-          CMAKE_ARGS=(-GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo)
-          if [[ "${{ matrix.os_label }}" == "windows" ]]; then
-            export CMAKE_PREFIX_PATH="$PWD/../qt6/build/lib/cmake"
-            CMAKE_ARGS+=(-DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl)
-          else
-            CMAKE_ARGS+=(-DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++")
-          fi
+          CMAKE_ARGS=(-GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++")
           cmake "${CMAKE_ARGS[@]}" ..
           ninja -j$(nproc 2>/dev/null || echo 4)
           cd ..
-          if [[ "${{ matrix.os_label }}" == "windows" ]]; then
-            ./script/deploy_windows.sh
-          else
-            ./script/deploy_linux64.sh
-          fi
+          ./script/deploy_linux64.sh
+
+      - name: 🏗️ Сборка Neko Throne (Windows)
+        if: matrix.os_label == 'windows'
+        shell: 'C:\Program Files\Git\bin\bash.EXE --noprofile --norc -eo pipefail {0}'
+        run: |
+          mkdir -p build && cd build
+          curl -fLso srslist.h --retry 5 "https://raw.githubusercontent.com/throneproj/routeprofiles/rule-set/srslist.h" || touch srslist.h
+          export CMAKE_PREFIX_PATH="$PWD/../qt6/build/lib/cmake"
+          cmake -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl ..
+          ninja -j${NUMBER_OF_PROCESSORS:-4}
+          cd ..
+          ./script/deploy_windows.sh
 
       - name: 📝 Итог сборки
         if: always()

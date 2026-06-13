@@ -28,7 +28,7 @@ if ! command -v protoc &>/dev/null; then
     echo ">> Downloading protoc with retry logic..."
     curl -fLO --retry 5 --retry-delay 3  "${PROTOC_URL}"
     unzip -qo "${PROTOC_ZIP}" -d /tmp/protoc_install
-    sudo cp /tmp/protoc_install/bin/protoc /usr/local/bin/
+    install -m 0755 /tmp/protoc_install/bin/protoc /usr/local/bin/protoc
     rm -rf "${PROTOC_ZIP}" /tmp/protoc_install
 fi
 

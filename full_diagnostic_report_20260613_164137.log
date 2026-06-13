@@ -1,0 +1,15 @@
+=== Log Collection Started: Сб 13 июн 2026 16:41:37 +05 ===
+Environment: Linux bazzite 7.0.9-ogc3.2.fc44.x86_64 #1 SMP PREEMPT_DYNAMIC Wed May 20 01:34:43 UTC 2026 x86_64 GNU/Linux
+Distrobox: /usr/bin/distrobox-enter
+
+--- Live Terminal Output (10s) ---
+[4] Cleaned up stale local server socket: "throne-mOeEQuy8QFLSb5ctbFpPyg"
+Error getting authority: Error initializing authority: Could not connect: No such file or directory
+Signal 15 received, exiting...
+
+--- Content of build/application.log ---
+2026-06-13 16:38:06.674 [INFO ] default: Diagnostic mode: single-instance guard disabled.
+2026-06-13 16:38:08.167 [INFO ] default: Diagnostic mode: single-instance guard disabled.
+2026-06-13 16:41:25.675 [INFO ] default: Diagnostic mode: single-instance guard disabled.
+2026-06-13 16:41:27.170 [INFO ] default: Diagnostic mode: single-instance guard disabled.
+2026-06-13 16:41:37.539 [INFO ] default: Cleaned up stale local server socket: "throne-mOeEQuy8QFLSb5ctbFpPyg"

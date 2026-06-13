@@ -345,17 +345,29 @@ if (Qt6_VERSION VERSION_GREATER_EQUAL 6.9.0)
 endif ()
 
 # Qt exe
-qt_add_executable(Throne
-        MANUAL_FINALIZATION
+add_library(ThroneLib STATIC
         ${PROJECT_SOURCES}
 )
 
+set_property(TARGET ThroneLib PROPERTY AUTOUIC ON)
+set_property(TARGET ThroneLib PROPERTY AUTOMOC ON)
+set_property(TARGET ThroneLib PROPERTY AUTORCC ON)
+
+target_link_libraries(ThroneLib PUBLIC
+        Qt6::Widgets Qt6::Network Qt6::Concurrent
+        $<$<NOT:$<PLATFORM_ID:Windows>>:Qt6::DBus>
+        Threads::Threads
+        ${NKR_EXTERNAL_TARGETS}
+        ${PLATFORM_LIBRARIES}
+)
+
+qt_add_executable(Throne
+        MANUAL_FINALIZATION
+)
+
+target_link_libraries(Throne PRIVATE ThroneLib)
+
 # Target
-
-set_property(TARGET Throne PROPERTY AUTOUIC ON)
-set_property(TARGET Throne PROPERTY AUTOMOC ON)
-set_property(TARGET Throne PROPERTY AUTORCC ON)
-
 
 set_target_properties(Throne PROPERTIES
         OUTPUT_NAME "Neko_Throne"
@@ -389,15 +401,7 @@ foreach(_qm_file ${QM_FILES})
     )
 endforeach()
 
-# Target Link
-
-target_link_libraries(Throne PRIVATE
-        Qt6::Widgets Qt6::Network Qt6::Concurrent
-        $<$<NOT:$<PLATFORM_ID:Windows>>:Qt6::DBus>
-        Threads::Threads
-        ${NKR_EXTERNAL_TARGETS}
-        ${PLATFORM_LIBRARIES}
-)
+# Target Link (moved to ThroneLib)
 
 # Static Qt: import all required plugins so they're linked into the single binary
 if (QT_STATIC)
@@ -420,6 +424,11 @@ qt_finalize_executable(Throne)
 # ═══════════════════════════════════════════════════════════════════════════════
 enable_testing()
 find_package(Qt6 REQUIRED COMPONENTS Test)
+
 add_executable(ArtifactTest tests/ArtifactTest.cpp)
-target_link_libraries(ArtifactTest PRIVATE Qt6::Test Qt6::Core Qt6::Concurrent Qt6::Widgets)
+target_link_libraries(ArtifactTest PRIVATE Qt6::Test ThroneLib)
 add_test(NAME FullArtifactCheck COMMAND ArtifactTest)
+
+add_executable(ServerListModelTest tests/ServerListModelTest.cpp)
+target_link_libraries(ServerListModelTest PRIVATE Qt6::Test ThroneLib)
+add_test(NAME ServerListModelTest COMMAND ServerListModelTest)

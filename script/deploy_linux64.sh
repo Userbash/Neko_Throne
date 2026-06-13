@@ -27,6 +27,9 @@ else
 fi
 
 DEST=$DEPLOYMENT/linux-$ARCH
+APPDIR="$DEST"
+APPIMAGE_NAME="NekoThrone-linux-$ARCH.AppImage"
+ARCHIVE_NAME="NekoThrone-linux-$ARCH-portable.tar.gz"
 rm -rf "$DEST"
 mkdir -p "$DEST"
 
@@ -119,20 +122,45 @@ fi
 echo "[4/4] Creating wrapper script..."
 # Create a wrapper script for systems where RPATH might fail
 cat > "$DEST/Throne.sh" <<'EOF'
-#!/bin/bash
-HERE="$(dirname "$(readlink -f "$0")")"
-export LD_LIBRARY_PATH="$HERE/usr/lib:$LD_LIBRARY_PATH"
+#!/bin/sh
+SCRIPT_PATH="$0"
+while [ -L "$SCRIPT_PATH" ]; do
+  SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$SCRIPT_PATH")" && pwd -P)
+  SCRIPT_PATH=$(readlink "$SCRIPT_PATH")
+  case "$SCRIPT_PATH" in
+    /*) ;;
+    *) SCRIPT_PATH="$SCRIPT_DIR/$SCRIPT_PATH" ;;
+  esac
+done
+HERE=$(CDPATH= cd -- "$(dirname -- "$SCRIPT_PATH")" && pwd -P)
+export LD_LIBRARY_PATH="$HERE/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export QT_PLUGIN_PATH="$HERE/usr/plugins"
 export QML2_IMPORT_PATH="$HERE/usr/qml"
-
-# Enable Core Dumps for debugging
-ulimit -c unlimited
-# Set core dump pattern to the current directory if possible
-# (Requires /proc/sys/kernel/core_pattern to be just "core", but we try our best)
-
-echo "--- Launching Throne (Segfault Debug Mode) ---"
 exec "$HERE/Neko_Throne" "$@"
 EOF
 chmod +x "$DEST/Throne.sh"
 
+if [ -f "$SRC_ROOT/res/public/Throne.desktop" ]; then
+  cp "$SRC_ROOT/res/public/Throne.desktop" "$DEST/"
+fi
+(
+  cd "$DEPLOYMENT"
+  tar czf "$ARCHIVE_NAME" "linux-$ARCH"
+)
+
+if [ -x "./linuxdeploy-root/AppRun" ]; then
+  export OUTPUT=appimage
+  VERSION="${INPUT_VERSION:-dev}" ./linuxdeploy-root/AppRun \
+    --appdir "$APPDIR" \
+    --executable "$APPDIR/Neko_Throne" \
+    --desktop-file "$SRC_ROOT/res/public/Throne.desktop" \
+    --icon-file "$APPDIR/Throne.png" \
+    --plugin qt
+  find . -maxdepth 1 -type f -name "NekoThrone*${ARCH1}.AppImage" -exec mv {} "$DEPLOYMENT/$APPIMAGE_NAME" \; 2>/dev/null || true
+fi
+
 echo "Deployment finished! Portable files are in $DEST"
+echo "Portable archive: $DEPLOYMENT/$ARCHIVE_NAME"
+if [ -f "$DEPLOYMENT/$APPIMAGE_NAME" ]; then
+  echo "AppImage: $DEPLOYMENT/$APPIMAGE_NAME"
+fi
